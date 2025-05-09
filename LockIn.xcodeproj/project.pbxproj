@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		51241D3A2DCDD99A00905A12 /* FirebaseAnalytics in Frameworks */ = {isa = PBXBuildFile; productRef = 51241D392DCDD99A00905A12 /* FirebaseAnalytics */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		51241D1A2DCDD87200905A12 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -52,6 +56,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				51241D3A2DCDD99A00905A12 /* FirebaseAnalytics in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -112,6 +117,7 @@
 			);
 			name = LockIn;
 			packageProductDependencies = (
+				51241D392DCDD99A00905A12 /* FirebaseAnalytics */,
 			);
 			productName = LockIn;
 			productReference = 51241D082DCDD87000905A12 /* LockIn.app */;
@@ -195,6 +201,9 @@
 			);
 			mainGroup = 51241CFF2DCDD87000905A12;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				51241D382DCDD99A00905A12 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 51241D092DCDD87000905A12 /* Products */;
 			projectDirPath = "";
@@ -591,6 +600,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		51241D382DCDD99A00905A12 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/firebase/firebase-ios-sdk";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 11.12.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		51241D392DCDD99A00905A12 /* FirebaseAnalytics */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 51241D382DCDD99A00905A12 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAnalytics;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 51241D002DCDD87000905A12 /* Project object */;
 }
