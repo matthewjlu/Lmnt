@@ -8,7 +8,13 @@
 import SwiftUI
 
 public struct PartyView: View {
+    @EnvironmentObject private var authVM: AuthViewModel
+
     public var body: some View {
-        Text("PartyView")
+        Button("Sign Out") {
+          Task {
+              authVM.signOut()
+            }
+        }
     }
 }

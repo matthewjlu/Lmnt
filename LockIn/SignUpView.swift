@@ -13,7 +13,6 @@ struct SignUpView: View {
     @State private var email = ""
     @State private var password = ""
     @State private var alertMessage = ""
-    @State private var showingAlert = false
     
     var body: some View {
         VStack(spacing: 30) {
@@ -37,11 +36,10 @@ struct SignUpView: View {
                         do {
                           let result = try await authVM.signUp(email: email, password: password)
                           print("✅", result)
-                          alertMessage = "Success! Account Created. Please Sign in"
+                          alertMessage = "Success! Account Created. Please Sign in."
                         } catch {
                           print("🛑",error.localizedDescription)
                           alertMessage = error.localizedDescription
-                          showingAlert = true
                         }
                         }
                     }
@@ -54,10 +52,9 @@ struct SignUpView: View {
                             .foregroundColor(.blue)
                             .cornerRadius(8)
                     }
-                    
                     if !alertMessage.isEmpty {
                         Text(alertMessage)
-                            .foregroundColor(showingAlert ? .red : .green)
+                            .foregroundColor(alertMessage ==  "Success! Account Created. Please Sign in." ? .green : .red)
                             .multilineTextAlignment(.center)
                             .padding(.top, 8)
                     }
