@@ -16,8 +16,9 @@ struct LoginView: View {
     
     var body: some View {
         VStack(spacing: 30) {
-            Text("lmnt")
-                .font(.system(size: 23, weight: .semibold, design: .rounded))
+            Text("LMNT")
+                .font(.custom("BodoniModa-Regular", size: 36))
+                .fontWeight(.bold)
                 .foregroundColor(.primary)
                 .offset(y: -200)
             TextField("Email", text: $email)
