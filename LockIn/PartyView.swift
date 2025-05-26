@@ -42,16 +42,35 @@ public struct PartyView: View {
         .padding()
         
         Group {
-            let uid = "mGNgwt5noKVkpX1rnLgCez7Wlir1"
-            if let email = authVM.currentUser?.email {
-                Button("Join Party") {
+            if let id = authVM.currentUser?.uid {
+                Button("Request to Join Party") {
                     Task {
                         let party = PartyViewModel()
                         do {
-                            try await party.joinParty(userId: uid, email: email)
-                            print("✅ Joined party successfully")
+                            try await party.requestJoin(partyId: "SuvwUjq8JoXg0POZ8876", userId: id)
+                            print("✅ Requested party successfully")
                         } catch {
                             print("❌ Failed to join party:", error)
+                        }
+                    }
+                }
+            } else {
+                // 4️⃣ handle the “not signed in” case
+                Text("🔒 Please sign in to join a party.")
+            }
+        }
+        .padding()
+        
+        Group {
+            if let id = authVM.currentUser?.uid {
+                Button("Ready Up") {
+                    Task {
+                        let party = PartyViewModel()
+                        do {
+                            try await party.readyUp(partyId: "SuvwUjq8JoXg0POZ8876", userId: id)
+                            print("✅ Readied Up successfully")
+                        } catch {
+                            print("❌ Failed to Ready Up:", error)
                         }
                     }
                 }

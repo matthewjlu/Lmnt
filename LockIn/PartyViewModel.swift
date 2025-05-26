@@ -100,5 +100,18 @@ class PartyViewModel: ObservableObject {
           "requestedAt": FieldValue.serverTimestamp()
         ])
     }
+    
+    @MainActor
+    func readyUp(partyId: String, userId: String) async throws {
+      let membersDoc = partiesCol
+        .document(partyId)
+        .collection("readyUp")
+        .document("members")
+
+      // Append this userId to the "members" array
+      try await membersDoc.updateData([
+        "ready": FieldValue.arrayUnion([userId])
+      ])
+    }
 }
 
