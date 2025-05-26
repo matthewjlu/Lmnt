@@ -1,75 +1,79 @@
-//
 //  UserDBViewModel.swift
 //  LockIn
 //
 //  Created by Matthew Lu on 5/16/25.
 //
 
-// AppDelegate.swift
-
-import UIKit
-import FirebaseCore
-import FirebaseDatabase
-import FirebaseAuth
 import Foundation
+import FirebaseCore
+import FirebaseFirestore
+import FirebaseAuth
 
 class UserDBViewModel: ObservableObject {
-    //setting ref to be of type DatabaseReference
-    private let ref: DatabaseReference
-    
+    //database variable
+    private let db: Firestore
+    //doc reference pointer
+    private let userRef: DocumentReference
+
     init(userId: String) {
-        //user data will be stored at /users/{userId}
-        ref = Database.database()
-            .reference()
-            .child("users")
-            .child(userId)
+        //initializing the database
+        self.db = Firestore.firestore()
+        //gets a pointer to users/{userId}
+        self.userRef = db.collection("users").document(userId)
     }
-    
-    //basically this is the first write to the database when the user signs up for the site
+
+    //first time when a user signs up
     func writeUserData(email: String) {
-        //creating the dictionary for the database
         let data: [String: Any] = [
-                    "name": "",
-                    "email": email,
-                    "joinedAt": ServerValue.timestamp(),
-                    "lastLogin": "",
-                    "friends": []
-                ]
-                ref.setValue(data) { error, _ in
-                    if let error = error {
-                        print("❌ Error writing user profile:", error.localizedDescription)
-                    } else {
-                        print("✅ User profile created/updated")
-                    }
-                }
-        readableDateTime(field: "joinedAt")
-    }
-    
-    //keeping track of when the user last logged in
-    func updateLastLogin() {
-        ref.updateChildValues(["lastLogin": ServerValue.timestamp()])
-        readableDateTime(field: "lastLogin")
-    }
-    
-    //function for converting ServerValue.timestamp() into human readable times
-    func readableDateTime(field:String) {
-        //first trying to fetch the data in the database
-        //snapshot is basically a picture of how the database looks when you getData
-        ref.getData { error, snapshot in
+            "name": "",
+            "email": email,
+            "joinedAt": FieldValue.serverTimestamp(),
+            "lastLogin": FieldValue.serverTimestamp(),
+            //shorthand for the type Array<String>
+            "friends": [String](),
+            "partyCode": ""
+        ]
+
+        userRef.setData(data) { error in
             if let error = error {
-                print("Error fetching user:", error.localizedDescription)
+                print("Error writing user profile:", error.localizedDescription)
+            } else {
+                print("User profile created/updated")
+                //now convert the timestamp to a readable string
+                self.readableDateTime(field: "joinedAt")
+                self.readableDateTime(field: "lastLogin")
+            }
+        }
+    }
+
+    //update just the lastLogin field
+    func updateLastLogin() {
+        userRef.updateData([
+            "lastLogin": FieldValue.serverTimestamp()
+        ]) { error in
+            if let error = error {
+                print("Error updating lastLogin:", error.localizedDescription)
+            } else {
+                print("lastLogin timestamp set")
+                self.readableDateTime(field: "lastLogin")
+            }
+        }
+    }
+
+    //Fetch the raw Timestamp for `field`, format it, and write the string back
+    private func readableDateTime(field: String) {
+        userRef.getDocument { snapshot, error in
+            if let error = error {
+                print("Error fetching user document:", error.localizedDescription)
                 return
             }
-            
-            //getting the specific key and value in the databse
-            guard let dict = snapshot?.value as? [String:Any], let time = dict[field] as? TimeInterval else {
-                print("No field found!")
+            guard let data = snapshot?.data(),
+                  let ts = data[field] as? Timestamp else {
+                print("No `\(field)` timestamp found to format")
                 return
             }
-            
-            let date = Date(timeIntervalSince1970: time / 1000)
-            
-            //just to make the times people joined readable
+
+            let date = ts.dateValue()
             let readable = date.formatted(
                 Date.FormatStyle()
                     .month(.abbreviated)
@@ -79,9 +83,14 @@ class UserDBViewModel: ObservableObject {
                     .minute(.twoDigits)
                     .second(.twoDigits)
             )
-            //updating the field in the databse
-            self.ref.updateChildValues([field: readable])
+
+            self.userRef.updateData([field: readable]) { error in
+                if let error = error {
+                    print("Error writing formatted \(field):", error.localizedDescription)
+                } else {
+                    print("\(field) updated to readable string: \(readable)")
+                }
+            }
         }
     }
 }
-    
