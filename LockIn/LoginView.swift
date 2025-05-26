@@ -9,7 +9,6 @@ import SwiftUI
 
 struct LoginView: View {
     @EnvironmentObject private var authVM: AuthViewModel
-    //    @StateObject private var partyVM = PartyViewModel( userId: authVM.currentUser?.uid)
     @State private var email = ""
     @State private var password = ""
     @State private var alertMessage = ""
