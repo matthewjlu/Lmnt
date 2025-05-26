@@ -28,7 +28,7 @@ class UserDBViewModel: ObservableObject {
             "name": "",
             "email": email,
             "joinedAt": FieldValue.serverTimestamp(),
-            "lastLogin": "",
+            "lastLogin": FieldValue.serverTimestamp(),
             //shorthand for the type Array<String>
             "friends": [String](),
             "partyCode": ""
