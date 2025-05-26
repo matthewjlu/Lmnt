@@ -42,7 +42,7 @@ public struct PartyView: View {
         .padding()
         
         Group {
-            let uid = "cXxSEN6c9KS5mfrpwDOb4mAfdU62"
+            let uid = "mGNgwt5noKVkpX1rnLgCez7Wlir1"
             if let email = authVM.currentUser?.email {
                 Button("Join Party") {
                     Task {

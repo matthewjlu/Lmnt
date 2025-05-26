@@ -76,18 +76,29 @@ class PartyViewModel: ObservableObject {
         return "SUCCESS!"
     }
 
-    // flip wantsToLeave = true under /parties/{partyId}
-    func requestLeave(partyId: String) async throws {
-        let partyRef = partiesCol.document(partyId)
-        try await partyRef.setData(["wantsToLeave": true], merge: true)
-        print("LEAVE requested")
+    // flip wantsToLeave = true under /parties/{partyId}/leaveRequests/{userId}
+    func requestLeave(partyId: String, userId: String) async throws {
+      let requestRef = partiesCol
+          .document(partyId)
+          .collection("leaveRequests")
+          .document(userId)
+
+      try await requestRef.setData([
+        "requestedAt": FieldValue.serverTimestamp()
+      ])
     }
 
-    // flip wantsToJoin = true under /parties/{partyId}
-    func requestJoin(partyId: String) async throws {
-        let partyRef = partiesCol.document(partyId)
-        try await partyRef.setData(["wantsToJoin": true], merge: true)
-        print("JOIN requested")
+
+    // flip wantsToJoin = true under /parties/{partyId}/joinRequests/{userId}
+    func requestJoin(partyId: String, userId: String) async throws {
+        let requestRef = partiesCol
+            .document(partyId)
+            .collection("joinRequests")
+            .document(userId)
+
+        try await requestRef.setData([
+          "requestedAt": FieldValue.serverTimestamp()
+        ])
     }
 }
 

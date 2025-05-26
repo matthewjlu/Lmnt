@@ -41,6 +41,7 @@ class UserDBViewModel: ObservableObject {
                 print("User profile created/updated")
                 //now convert the timestamp to a readable string
                 self.readableDateTime(field: "joinedAt")
+                self.readableDateTime(field: "lastLogin")
             }
         }
     }
