@@ -2,179 +2,142 @@ import SwiftUI
 import UIKit
 
 struct HomeView: View {
-    @State private var selectedIndex = 0
-    let bgImage   = "image1_1950"
-    let buttonBg  = "image2_1953"
-    let lockIcon  = "image3_2166"
-    let navIcons  = ["image4_2177", "image5_2180", "image6_2183", "image7_2189"]
-    let navTitles = ["Home", "Leaderboard", "Party", "Profile"]
+    @State private var selection: TabDestination? = nil
+    @EnvironmentObject private var authVM: AuthViewModel
+
+    private enum TabDestination: Hashable {
+        case home, leaderboard, party, profile
+    }
+
+    private let bgImage  = "image1_1950"
+    private let buttonBg = "image2_1953"
+    private let lockIcon = "image3_2166"
 
     var body: some View {
-        GeometryReader { geo in
-            ZStack {
-                Image(bgImage)
-                  .resizable()
-                  .aspectRatio(contentMode: .fill)
-                  .frame(width: geo.size.width,
-                         height: geo.size.height)
-                  .clipped()
+        NavigationStack {
+            GeometryReader { geo in
+                let topInset    = geo.safeAreaInsets.top
+                let bottomInset = geo.safeAreaInsets.bottom
 
-                VStack {
-                    HStack {
-                        Text("LMNT")
-                          .font(.custom("BodoniModa-Regular", size: 36))
-                          .foregroundColor(.white)
-                          .fontWeight(.bold)
-                        Spacer()
-                    }
-                    .padding(.top, 20)
-                    .padding(.horizontal, 24)
+                ZStack {
+                    // Full-screen background
+                    Image(bgImage)
+                        .resizable()
+                        .scaledToFill()
+                        .ignoresSafeArea()
 
-                    Spacer()
-                    
                     VStack {
-                        ScrambleText(
-                          text: "Time Off Technology:",
-                          font: .custom("Signika", size: 30),
-                          delay: 0.5
-                        )
-                        .foregroundColor(.white)
-                        .fontWeight(.bold)
-                        .offset(x: 0, y: 150)
-                        ScrambleText(
-                          text: "2000 Hours",
-                          font: .custom("Signika", size: 45),
-                          delay: 0.5
-                        )
-                        .foregroundColor(.white)
-                        .fontWeight(.bold)
-                        .offset(x: 0, y: 160)
+                        // Top bar
+                        HStack {
+                            Text("LMNT")
+                                .font(.custom("BodoniModa-Regular", size: 36))
+                                .foregroundColor(.white)
+                                .fontWeight(.bold)
+                            Spacer()
+                        }
+                        .padding(.top, topInset - 40)
+                        .padding(.horizontal, 24)
+
                         Spacer()
-                    }
-                    .padding(.top, 100)
-                    .padding(.horizontal, 24)
 
-                    Spacer()
-                    
-                    Button{
-                    } label: {
-                        ZStack {
-                            Image(buttonBg)
-                                .resizable()
-                                .frame(width: 304, height: 71)
-                                .cornerRadius(16)
-                            
-                            HStack(spacing: 12) {
-                                Image(lockIcon)
+                        VStack(spacing: 16) {
+                            ScrambleText(text: "Time Off Technology:", font: .custom("Palatino", size: 30), delay: 0.5)
+                                .foregroundColor(.white).fontWeight(.bold)
+                            ScrambleText(text: "2000 Hours",              font: .custom("Palatino", size: 45), delay: 0.5)
+                                .foregroundColor(.white).fontWeight(.bold)
+                        }
+
+                        Spacer()
+
+                        // Block-Now button
+                        Button {
+                            // your action…
+                        } label: {
+                            ZStack {
+                                Image(buttonBg)
                                     .resizable()
-                                    .frame(width: 35, height: 35)
-                                Text("Block Now")
-                                    .font(.custom("MarkaziText-Bold", size: 40))
-                                    .foregroundColor(.white)
+                                    .frame(width: 304, height: 71)
+                                    .cornerRadius(16)
+                                HStack(spacing: 12) {
+                                    Image(lockIcon)
+                                        .resizable()
+                                        .frame(width: 35, height: 35)
+                                    Text("Block Now")
+                                        .font(.custom("MarkaziText-Bold", size: 40))
+                                        .foregroundColor(.white)
+                                }
                             }
                         }
-                    }
-                    .padding(.bottom, 10)
+                        .padding(.bottom, 20)
 
-                    HStack {
-                        // Home
-                        Button {
-                            selectedIndex = 0
-                        } label: {
-                            VStack(spacing: 4) {
-                                Image("image4_2177")
-                                  .resizable()
-                                  .frame(width: 40, height: 40)
-                                  .opacity(selectedIndex == 0 ? 1 : 0.6)
-                                Text("Home")
-                                  .font(.custom("Habibi-Regular", size: 12))
-                                  .foregroundColor(.white)
-                                  .fontWeight(.bold)
-                                  .opacity(selectedIndex == 0 ? 1 : 0.6)
-                            }
-                            .frame(maxWidth: .infinity)
+                        // Bottom nav bar
+                        HStack(spacing: 0) {
+                            navLink(for: .home,       icon: "image4_2177", title: "Home")
+                            navLink(for: .leaderboard,icon: "image5_2180", title: "Leaderboard")
+                                .offset(x: 5)
+                            navLink(for: .party,      icon: "image6_2183", title: "Party")
+                                .offset(x: 8)
+                            navLink(for: .profile,    icon: "image7_2189", title: "Profile")
                         }
-                        .offset(y: 20)
-
-                        // Leaderboard
-                        Button {
-                            selectedIndex = 1
-                        } label: {
-                            VStack(spacing: 4) {
-                                Image("image5_2180")
-                                  .resizable()
-                                  .frame(width: 50, height: 45)
-                                  .opacity(selectedIndex == 1 ? 1 : 0.6)
-                                Text("Leaderboard")
-                                  .font(.custom("Habibi-Regular", size: 11))
-                                  .foregroundColor(.white)
-                                  .fontWeight(.bold)
-                                  .opacity(selectedIndex == 1 ? 1 : 0.6)
-                            }
-                            .frame(maxWidth: .infinity)
-                        }
-                        .offset(y: 20)
-                        .offset(x: 5)
-
-                        // Party
-                        Button {
-                            selectedIndex = 2
-                        } label: {
-                            VStack(spacing: 4) {
-                                Image("image6_2183")
-                                  .resizable()
-                                  .frame(width: 45, height: 55)
-                                  .opacity(selectedIndex == 2 ? 1 : 0.6)
-                                Text("Party")
-                                  .font(.custom("Habibi-Regular", size: 12))
-                                  .foregroundColor(.white)
-                                  .fontWeight(.bold)
-                                  .opacity(selectedIndex == 2 ? 1 : 0.6)
-                                  .offset(y: -5)
-                            }
-                            .frame(maxWidth: .infinity)
-                        }
-                        .offset(y: 20)
-                        .offset(x: 5)
-
-                        // Profile
-                        Button {
-                            selectedIndex = 3
-                        } label: {
-                            VStack(spacing: 4) {
-                                Image("image7_2189")
-                                  .resizable()
-                                  .frame(width: 50, height: 45)
-                                  .opacity(selectedIndex == 3 ? 1 : 0.6)
-                                Text("Profile")
-                                  .font(.custom("Habibi-Regular", size: 12))
-                                  .foregroundColor(.white)
-                                  .fontWeight(.bold)
-                                  .opacity(selectedIndex == 3 ? 1 : 0.6)
-                            }
-                            .frame(maxWidth: .infinity)
-                        }
-                        .offset(y: 20)
+                        .padding(.horizontal, 24)
+                        .padding(.bottom, bottomInset + 50)
                     }
                     .padding(.horizontal, 24)
-                    .padding(.bottom, 40)
-
-                    .padding(.horizontal, 24)
-                    .padding(.bottom, 40)
                 }
             }
-            .clipShape(RoundedRectangle(cornerRadius: 20))
+            // 4) Hook up your destinations
+            .navigationDestination(for: TabDestination.self) { dest in
+                switch dest {
+                case .home:
+                    PartyView()
+                case .leaderboard:
+                    PartyView()
+                case .party:
+                    PartyView()
+                case .profile:
+                    PartyView()
+                }
+            }
         }
+    }
+
+
+    @ViewBuilder
+    private func navLink(
+        for dest: TabDestination,
+        icon: String,
+        title: String
+    ) -> some View {
+        NavigationLink(value: dest) {
+            VStack(spacing: 4) {
+                Image(icon)
+                    .resizable()
+                    .frame(width: 40, height: 40)
+                    .opacity(selection == dest ? 1 : 0.6)
+
+                Text(title)
+                    .font(.custom("Palatino", size: 12))
+                    .fontWeight(.bold)
+                    .foregroundColor(.white)
+                    .opacity(selection == dest ? 1 : 0.6)
+            }
+            .frame(maxWidth: .infinity)
+        }
+        .onTapGesture {
+            selection = dest
+        }
+        .buttonStyle(.plain)
     }
 }
 
-// ← PreviewProvider must be at file scope, NOT inside CustomView1
+// Previews
 struct HomeView_Previews: PreviewProvider {
+    @EnvironmentObject private var authVM: AuthViewModel
     static var previews: some View {
         HomeView()
-          .frame(width: 393, height: 852)
-          .previewLayout(.sizeThatFits)
-          .preferredColorScheme(.dark)
+            .environmentObject(AuthViewModel())
+            .previewDevice("iPhone 16")
+            .preferredColorScheme(.dark)
     }
 }
 

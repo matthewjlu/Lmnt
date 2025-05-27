@@ -16,7 +16,8 @@ struct RootView: View {
             if authvm.currentUser == nil {
               SignUpView()
             } else {
-              PartyView()
+              HomeView()
+              //PartyView()
             }
         }
     }
