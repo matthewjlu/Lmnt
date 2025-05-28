@@ -73,7 +73,7 @@ class AuthViewModel: ObservableObject {
             
             //2. write Firestore profile
             let userDB = UserDBViewModel(userId: result.user.uid)
-            userDB.writeUserData(email: email)
+            try await userDB.writeUserData(email: email)
             
             return "Success!"
             

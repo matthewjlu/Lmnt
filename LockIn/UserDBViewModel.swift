@@ -23,27 +23,58 @@ class UserDBViewModel: ObservableObject {
     }
 
     //first time when a user signs up
-    func writeUserData(email: String) {
+    func writeUserData(email: String) async throws -> String{
         let data: [String: Any] = [
             "name": "",
             "email": email,
             "joinedAt": FieldValue.serverTimestamp(),
             "lastLogin": FieldValue.serverTimestamp(),
+            "partyCode": "",
+            "friendCode": "",
             //shorthand for the type Array<String>
-            "friends": [String](),
-            "partyCode": ""
+            "friends": [String]()
         ]
-
-        userRef.setData(data) { error in
-            if let error = error {
-                print("Error writing user profile:", error.localizedDescription)
-            } else {
-                print("User profile created/updated")
-                //now convert the timestamp to a readable string
-                self.readableDateTime(field: "joinedAt")
-                self.readableDateTime(field: "lastLogin")
+        do {
+            {userRef.setData(data) { error in
+                if let error = error {
+                    print("Error writing user profile:", error.localizedDescription)
+                } else {
+                    print("User profile created/updated")
+                    //now convert the timestamp to a readable string
+                    self.readableDateTime(field: "joinedAt")
+                    self.readableDateTime(field: "lastLogin")
+                }
             }
+            }()
         }
+        do {
+            try await self.reserveFriendCode()
+        } catch {
+            print("BROKEN!!!!")
+            return "BROKEN!"
+        }
+        return "Works!"
+    }
+    func randomString(length: Int) -> String {
+        let characters = Array("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
+        return String((0..<length).compactMap { _ in characters.randomElement() })
+    }
+    
+    func reserveFriendCode() async throws {
+        var code: String
+        var snapshot: QuerySnapshot
+
+        repeat {
+            code = randomString(length: 5)
+            snapshot = try await db
+                        .collection("users")
+                        .whereField("friendCode", isEqualTo: code)
+                        .limit(to: 1)
+                        .getDocuments()
+        } while !snapshot.documents.isEmpty
+        
+        try await userRef
+            .setData(["friendCode": code], merge: true)
     }
 
     //update just the lastLogin field
