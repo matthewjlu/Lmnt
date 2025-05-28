@@ -35,13 +35,13 @@ struct HomeView: View {
                     // ───── Scramble Text ────
                     VStack(spacing: 16) {
                         ScrambleText(text: "Time Off Technology:",
-                                     font: .custom("Palatino", size: 30),
-                                     delay: 0.5)
+                          font: .custom("Palatino", size: 30),
+                          delay: 0.5)
                           .foregroundColor(.white)
                           .fontWeight(.bold)
                         ScrambleText(text: "2000 Hours",
-                                     font: .custom("Palatino", size: 45),
-                                     delay: 0.5)
+                          font: .custom("Palatino", size: 45),
+                          delay: 0.5)
                           .foregroundColor(.white)
                           .fontWeight(.bold)
                     }
