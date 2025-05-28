@@ -11,6 +11,9 @@
 		51241D3E2DCDDC7000905A12 /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = 51241D3D2DCDDC7000905A12 /* FirebaseAuth */; };
 		51241D402DCDDC7000905A12 /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = 51241D3F2DCDDC7000905A12 /* FirebaseCore */; };
 		51241D422DCDDC7000905A12 /* FirebaseDatabase in Frameworks */ = {isa = PBXBuildFile; productRef = 51241D412DCDDC7000905A12 /* FirebaseDatabase */; };
+		513A4C5C2DE41B8D00E4B6D7 /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = 513A4C5B2DE41B8D00E4B6D7 /* FirebaseFirestore */; };
+		513A4C5E2DE41BA800E4B6D7 /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = 513A4C5D2DE41BA800E4B6D7 /* FirebaseFirestore */; };
+		513A4C602DE425D600E4B6D7 /* FirebaseFirestoreCombine-Community in Frameworks */ = {isa = PBXBuildFile; productRef = 513A4C5F2DE425D600E4B6D7 /* FirebaseFirestoreCombine-Community */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -62,7 +65,10 @@
 				51241D3A2DCDD99A00905A12 /* FirebaseAnalytics in Frameworks */,
 				51241D402DCDDC7000905A12 /* FirebaseCore in Frameworks */,
 				51241D422DCDDC7000905A12 /* FirebaseDatabase in Frameworks */,
+				513A4C5C2DE41B8D00E4B6D7 /* FirebaseFirestore in Frameworks */,
 				51241D3E2DCDDC7000905A12 /* FirebaseAuth in Frameworks */,
+				513A4C5E2DE41BA800E4B6D7 /* FirebaseFirestore in Frameworks */,
+				513A4C602DE425D600E4B6D7 /* FirebaseFirestoreCombine-Community in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -127,6 +133,9 @@
 				51241D3D2DCDDC7000905A12 /* FirebaseAuth */,
 				51241D3F2DCDDC7000905A12 /* FirebaseCore */,
 				51241D412DCDDC7000905A12 /* FirebaseDatabase */,
+				513A4C5B2DE41B8D00E4B6D7 /* FirebaseFirestore */,
+				513A4C5D2DE41BA800E4B6D7 /* FirebaseFirestore */,
+				513A4C5F2DE425D600E4B6D7 /* FirebaseFirestoreCombine-Community */,
 			);
 			productName = LockIn;
 			productReference = 51241D082DCDD87000905A12 /* LockIn.app */;
@@ -638,6 +647,18 @@
 		51241D412DCDDC7000905A12 /* FirebaseDatabase */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = FirebaseDatabase;
+		};
+		513A4C5B2DE41B8D00E4B6D7 /* FirebaseFirestore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = FirebaseFirestore;
+		};
+		513A4C5D2DE41BA800E4B6D7 /* FirebaseFirestore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = FirebaseFirestore;
+		};
+		513A4C5F2DE425D600E4B6D7 /* FirebaseFirestoreCombine-Community */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = "FirebaseFirestoreCombine-Community";
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

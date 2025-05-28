@@ -17,8 +17,16 @@ struct LockInApp: App {
     init() {
         FirebaseApp.configure()
         registerCustomFonts()
+        //basically makes the bar at the bottom black
+        let tabBarAppearance = UITabBarAppearance()
+        tabBarAppearance.configureWithOpaqueBackground()
+        tabBarAppearance.backgroundColor = .black
+        UITabBar.appearance().standardAppearance = tabBarAppearance
+        if #available(iOS 15.0, *) {
+            UITabBar.appearance().scrollEdgeAppearance = tabBarAppearance
+        }
     }
-    
+
     //var body tells the app what to display when app launches and some Scene tells Swift that we will give a Scene
     var body: some Scene {
         //tells the app that we are going to have multiple different windows
