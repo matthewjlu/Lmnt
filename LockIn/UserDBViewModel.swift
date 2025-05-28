@@ -56,7 +56,7 @@ class UserDBViewModel: ObservableObject {
         return "Works!"
     }
     func randomString(length: Int) -> String {
-        let characters = Array("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
+        let characters = Array("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijlkmnopqrstuvwxyz0123456789")
         return String((0..<length).compactMap { _ in characters.randomElement() })
     }
     
