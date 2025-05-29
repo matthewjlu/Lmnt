@@ -23,9 +23,14 @@ class AuthViewModel: ObservableObject {
         // 1) read the persisted user (if any)
         self.currentUser = Auth.auth().currentUser
         
+        if currentUser != nil {
+            self.loadHours()
+        }
+        
         // 2) listen for future sign‐in / sign‐out events
         handle = Auth.auth().addStateDidChangeListener { [weak self] _, user in
             self?.currentUser = user
+            self?.loadHours()
         }
     }
 
@@ -74,7 +79,7 @@ class AuthViewModel: ObservableObject {
             
             //2. write Firestore profile
             let userDB = UserDBViewModel(userId: result.user.uid)
-            try await userDB.writeUserData(email: email)
+            try await _ = userDB.writeUserData(email: email)
             
             return "Success!"
             
@@ -144,23 +149,29 @@ class AuthViewModel: ObservableObject {
     }
     
     func loadHours() {
-            Task {
-                guard let uid = currentUser?.uid else { return }
-                do {
-                    let doc = try await Firestore.firestore()
-                        .collection("users")
-                        .document(uid)
-                        .getDocument()
-                    // publish into the @Published property
-                    DispatchQueue.main.async {
-                        self.hoursLockedIn = doc.get("hoursLockedIn") as? Int ?? -1
-                    }
-                } catch {
-                    DispatchQueue.main.async {
-                        self.hoursLockedIn = -1
-                    }
-                }
-            }
+      Task { @MainActor in
+        guard let uid = currentUser?.uid else { return }
+        do {
+          let snap = try await db.collection("users")
+                             .document(uid)
+                             .getDocument()
+          let data = snap.data() ?? [:]
+          if let i = data["hoursLockedIn"] as? Int {
+            hoursLockedIn = i
+          }
+          else if let d = data["hoursLockedIn"] as? Double {
+            hoursLockedIn = Int(d)
+          }
+          else if let i64 = data["hoursLockedIn"] as? Int64 {
+            hoursLockedIn = Int(i64)
+          }
+          else {
+            hoursLockedIn = -1
+          }
+        } catch {
+          hoursLockedIn = -1
         }
+      }
+    }
 }
 
