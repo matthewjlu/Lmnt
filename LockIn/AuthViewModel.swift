@@ -15,10 +15,13 @@ class AuthViewModel: ObservableObject {
     @Published var errorMessage: String?
     @Published var currentUser: User?
     @Published var hoursLockedIn: Int = -1
+    @Published var friendRequests: [String] = []
     
     private var handle: AuthStateDidChangeListenerHandle?
     private let db = Firestore.firestore()
-
+    private var listenerReq: ListenerRegistration?
+    private var listenerHours: ListenerRegistration?
+    
     init() {
         // 1) read the persisted user (if any)
         self.currentUser = Auth.auth().currentUser
@@ -33,13 +36,13 @@ class AuthViewModel: ObservableObject {
             self?.loadHours()
         }
     }
-
+    
     deinit {
         if let h = handle {
             Auth.auth().removeStateDidChangeListener(h)
         }
     }
-
+    
     enum SignUpError: LocalizedError {
         case emailAlreadyInUse
         case invalidEmail
@@ -70,7 +73,7 @@ class AuthViewModel: ObservableObject {
             }
         }
     }
-
+    
     //Create Firebase Auth user & Firestore profile
     func signUp(email: String, password: String) async throws -> String {
         do {
@@ -131,7 +134,7 @@ class AuthViewModel: ObservableObject {
                 throw nsError
             }
             switch code {
-            //add all the cases
+                //add all the cases
             default:
                 throw LoginError.unknown(nsError)
             }
@@ -148,30 +151,67 @@ class AuthViewModel: ObservableObject {
         }
     }
     
+    //calculates the user's hours spent locked in
     func loadHours() {
-      Task { @MainActor in
-        guard let uid = currentUser?.uid else { return }
-        do {
-          let snap = try await db.collection("users")
-                             .document(uid)
-                             .getDocument()
-          let data = snap.data() ?? [:]
-          if let i = data["hoursLockedIn"] as? Int {
-            hoursLockedIn = i
-          }
-          else if let d = data["hoursLockedIn"] as? Double {
-            hoursLockedIn = Int(d)
-          }
-          else if let i64 = data["hoursLockedIn"] as? Int64 {
-            hoursLockedIn = Int(i64)
-          }
-          else {
-            hoursLockedIn = -1
-          }
-        } catch {
-          hoursLockedIn = -1
+        Task { @MainActor in
+            guard let uid = currentUser?.uid else { return }
+            do {
+                let snap = try await db.collection("users")
+                    .document(uid)
+                    .getDocument()
+                let data = snap.data() ?? [:]
+                if let i = data["hoursLockedIn"] as? Int {
+                    hoursLockedIn = i
+                }
+                else if let d = data["hoursLockedIn"] as? Double {
+                    hoursLockedIn = Int(d)
+                }
+                else if let i64 = data["hoursLockedIn"] as? Int64 {
+                    hoursLockedIn = Int(i64)
+                }
+                else {
+                    hoursLockedIn = -1
+                }
+            } catch {
+                hoursLockedIn = -1
+            }
         }
-      }
+    }
+    
+    //basically always listening for changes to the user's friendRequests field
+    func startListeningReq(uid: String) {
+        listenerReq = Firestore.firestore()
+            .collection("users")
+            .document(uid)
+            .addSnapshotListener { [weak self] snap, error in
+                guard let data = snap?.data(),
+                      let requests = data["friendRequests"] as? [String]
+                else { return }
+                self?.friendRequests = requests
+            }
+    }
+    
+    //makes sure that the listener stops when the user leaves the page
+    func stopListeningReq() {
+        listenerReq?.remove()
+    }
+    
+    func startListeningHrs(uid: String) {
+        listenerHours = Firestore.firestore()
+            .collection("users")
+            .document(uid)
+            .addSnapshotListener { [weak self] snap, error in
+                guard let data = snap?.data(),
+                      let requests = data["hoursLockedIn"] as? Int
+                else { return }
+                self?.hoursLockedIn = requests
+            }
+    }
+    
+    
+    func stopListeningHrs() {
+        listenerHours?.remove()
     }
 }
+
 

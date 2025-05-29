@@ -31,6 +31,8 @@ public struct FriendView: View {
 
           // the searchable field
           TextField("Enter a friend code…", text: $searchText)
+            .textInputAutocapitalization(.never)
+            .autocapitalization(.none)
             .textFieldStyle(.roundedBorder)
             .padding(.horizontal)
             
@@ -39,6 +41,19 @@ public struct FriendView: View {
                     lookupFriendCode(searchText)
                 }
             }
+            
+            Text("Your Friend Requests \(authVM.friendRequests)")
+                .font(.custom("SF Pro", size: 15))
+                .fontWeight(.bold)
+                .foregroundColor(.white)
+                .onAppear {
+                    if let uid = authVM.currentUser?.uid {
+                        authVM.startListeningReq(uid: uid)
+                    }
+                }
+                .onDisappear {
+                    authVM.stopListeningReq()
+                }
        
         }
         .padding()
@@ -78,7 +93,6 @@ public struct FriendView: View {
   private func lookupFriendCode(_ code: String) {
     // if they wiped the field, nothing to do
     guard !code.isEmpty else { return }
-    var existingReq = [String]()
     Task {@MainActor in
 
       do {
