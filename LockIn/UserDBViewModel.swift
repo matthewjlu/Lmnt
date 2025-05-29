@@ -32,7 +32,9 @@ class UserDBViewModel: ObservableObject {
             "partyCode": "",
             "friendCode": "",
             //shorthand for the type Array<String>
-            "friends": [String]()
+            "friends": [String](),
+            "friendRequests": [String](),
+            "hoursLockedIn": 0
         ]
         do {
             {userRef.setData(data) { error in

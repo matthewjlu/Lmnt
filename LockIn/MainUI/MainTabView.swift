@@ -55,6 +55,9 @@ struct MainTabView: View {
             }
         }
         .accentColor(.white)
+        .task {
+            authVM.loadHours()
+        }
     }
 }
 
