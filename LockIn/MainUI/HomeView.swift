@@ -42,6 +42,7 @@ struct HomeView: View {
                         ScrambleText(text: "\(authVM.hoursLockedIn) Hours" ,
                           font: .custom("Palatino", size: 45),
                           delay: 0.5)
+                          .id(authVM.hoursLockedIn)
                           .foregroundColor(.white)
                           .fontWeight(.bold)
                     }
@@ -69,9 +70,6 @@ struct HomeView: View {
                     .padding(.bottom, 180)
                 }
                 .padding(.horizontal, 24)
-            }
-            .task {
-                authVM.loadHours()
             }
         }
     }
