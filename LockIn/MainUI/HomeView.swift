@@ -43,6 +43,14 @@ struct HomeView: View {
                           font: .custom("Palatino", size: 45),
                           delay: 0.5)
                           .id(authVM.hoursLockedIn)
+                          .onAppear {
+                              if let uid = authVM.currentUser?.uid {
+                                  authVM.startListeningHrs(uid: uid)
+                              }
+                          }
+                          .onDisappear {
+                              authVM.stopListeningHrs()
+                          }
                           .foregroundColor(.white)
                           .fontWeight(.bold)
                     }
