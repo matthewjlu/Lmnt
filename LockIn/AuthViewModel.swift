@@ -14,6 +14,7 @@ import FirebaseFirestore
 class AuthViewModel: ObservableObject {
     @Published var errorMessage: String?
     @Published var currentUser: User?
+    @Published var hoursLockedIn: Int = -1
     
     private var handle: AuthStateDidChangeListenerHandle?
     private let db = Firestore.firestore()
@@ -141,5 +142,25 @@ class AuthViewModel: ObservableObject {
             print("Error signing out: %@", signOutError)
         }
     }
+    
+    func loadHours() {
+            Task {
+                guard let uid = currentUser?.uid else { return }
+                do {
+                    let doc = try await Firestore.firestore()
+                        .collection("users")
+                        .document(uid)
+                        .getDocument()
+                    // publish into the @Published property
+                    DispatchQueue.main.async {
+                        self.hoursLockedIn = doc.get("hoursLockedIn") as? Int ?? -1
+                    }
+                } catch {
+                    DispatchQueue.main.async {
+                        self.hoursLockedIn = -1
+                    }
+                }
+            }
+        }
 }
 

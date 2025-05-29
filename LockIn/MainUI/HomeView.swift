@@ -1,9 +1,9 @@
 import SwiftUI
 import UIKit
+import FirebaseFirestore
 
 struct HomeView: View {
     @EnvironmentObject private var authVM: AuthViewModel
-    
     private let bgImage  = "image1_1950"
     private let buttonBg = "image2_1953"
     private let lockIcon = "image3_2166"
@@ -39,7 +39,7 @@ struct HomeView: View {
                           delay: 0.5)
                           .foregroundColor(.white)
                           .fontWeight(.bold)
-                        ScrambleText(text: "2000 Hours",
+                        ScrambleText(text: "\(authVM.hoursLockedIn) Hours" ,
                           font: .custom("Palatino", size: 45),
                           delay: 0.5)
                           .foregroundColor(.white)
@@ -69,6 +69,9 @@ struct HomeView: View {
                     .padding(.bottom, 180)
                 }
                 .padding(.horizontal, 24)
+            }
+            .task {
+                authVM.loadHours()
             }
         }
     }

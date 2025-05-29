@@ -10,11 +10,8 @@ import FirebaseFirestore
 
 public struct FriendView: View {
   @EnvironmentObject private var authVM: AuthViewModel
-
   @State private var friendCode: String = "loading…"
   @State private var searchText: String = ""
-  @State private var foundEmail: String?
-  @State private var isSearching = false
 
   private let bgImage = "image1_1950"
 
@@ -36,24 +33,17 @@ public struct FriendView: View {
           TextField("Enter a friend code…", text: $searchText)
             .textFieldStyle(.roundedBorder)
             .padding(.horizontal)
-
-          if isSearching {
-            ProgressView()
-          } else if let email = foundEmail {
-            Text("Found user! \(email)")
-              .foregroundColor(.green)
-          } else if !searchText.isEmpty {
-            Text("No user found")
-              .foregroundColor(.red)
-          }
+            
+            Button("Invite!") {
+                Task {
+                    lookupFriendCode(searchText)
+                }
+            }
+       
         }
         .padding()
           //loads when the user goes to the friends page
         .onAppear(perform: loadMyCode)
-          //queries when the user starts searching
-        .onChange(of: searchText) {
-          lookupFriendCode(searchText)
-        }
       }
       .navigationTitle("Friends")
     }
@@ -77,35 +67,48 @@ public struct FriendView: View {
       }
     }
   }
+    
+    
+  struct FriendRequestUpdate: Codable, Sendable {
+    let friendRequests: [String]
+  }
 
-  // lookup the entered code:
+  // lookup the entered code and add to the found user's friendRequests array
+  @MainActor
   private func lookupFriendCode(_ code: String) {
-    // clear any previous result
-    foundEmail = nil
-
     // if they wiped the field, nothing to do
     guard !code.isEmpty else { return }
-
-    isSearching = true
-    Task {
-      defer { isSearching = false }
+    var existingReq = [String]()
+    Task {@MainActor in
 
       do {
+          //first we find any users who have the friendCode that the user types in
         let snapshot = try await Firestore.firestore()
           .collection("users")
           .whereField("friendCode", isEqualTo: code)
           .limit(to: 1)
           .getDocuments()
-
-        if let doc = snapshot.documents.first,
-           let email = doc.get("email") as? String {
-          foundEmail = email
+        //doc is a QueryDocumentSnapshot
+        if let doc = snapshot.documents.first {
+            //then we append the user's email to the person who's friend code we found
+            
+            let data = doc.data()
+            guard var existingReq = data["friendRequests"] as? [String]
+            else {
+                return
+            }
+            
+            if let myEmail = authVM.currentUser?.email {
+                existingReq.append(myEmail)
+            }
+            let payload = FriendRequestUpdate(friendRequests: existingReq)
+            try doc.reference.setData(from: payload, merge: true)
         } else {
-          foundEmail = nil
+          return
         }
       } catch {
         print("lookup error:", error)
-        foundEmail = nil
+        return
       }
     }
   }
