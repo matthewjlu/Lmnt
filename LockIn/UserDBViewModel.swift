@@ -17,9 +17,9 @@ class UserDBViewModel: ObservableObject {
 
     init(userId: String) {
         //initializing the database
-        self.db = Firestore.firestore()
+        db = Firestore.firestore()
         //gets a pointer to users/{userId}
-        self.userRef = db.collection("users").document(userId)
+        userRef = db.collection("users").document(userId)
     }
 
     //first time when a user signs up
@@ -36,25 +36,25 @@ class UserDBViewModel: ObservableObject {
             "friendRequests": [String](),
             "hoursLockedIn": 0
         ]
-        do {
-            {userRef.setData(data) { error in
-                if let error = error {
-                    print("Error writing user profile:", error.localizedDescription)
-                } else {
-                    print("User profile created/updated")
-                    //now convert the timestamp to a readable string
-                    self.readableDateTime(field: "joinedAt")
-                    self.readableDateTime(field: "lastLogin")
+        
+        try await self.userRef.setData(data)
+        
+        var listener: ListenerRegistration?
+            
+        listener = userRef.addSnapshotListener { snapshot, error in
+            guard let snap = snapshot, error == nil else {
+                print("Error listening for changes:", error!.localizedDescription)
+                return
+            }
+            if !snap.metadata.hasPendingWrites {
+                print("Pending writes cleared, now reading real timestamp.")
+                self.readableDateTime(field: "joinedAt")
+                self.readableDateTime(field: "lastLogin")
+                listener!.remove()
                 }
             }
-            }()
-        }
-        do {
-            try await self.reserveFriendCode()
-        } catch {
-            print("BROKEN!!!!")
-            return "BROKEN!"
-        }
+        try await self.reserveFriendCode()
+        
         return "Works!"
     }
     func randomString(length: Int) -> String {
@@ -87,8 +87,21 @@ class UserDBViewModel: ObservableObject {
             if let error = error {
                 print("Error updating lastLogin:", error.localizedDescription)
             } else {
-                print("lastLogin timestamp set")
+                print("lastLogin timestamp sent")
+            }
+            
+        var listener: ListenerRegistration?
+            
+        listener = self.userRef.addSnapshotListener { snapshot, error in
+            guard let snap = snapshot, error == nil else {
+                print("Error listening for changes:", error!.localizedDescription)
+                return
+            }
+            if !snap.metadata.hasPendingWrites {
+                print("Pending writes cleared, now reading real timestamp.")
                 self.readableDateTime(field: "lastLogin")
+                listener!.remove()
+                }
             }
         }
     }
@@ -101,11 +114,11 @@ class UserDBViewModel: ObservableObject {
                 return
             }
             guard let data = snapshot?.data(),
-                  let ts = data[field] as? Timestamp else {
+                    let ts = data[field] as? Timestamp else {
                 print("No `\(field)` timestamp found to format")
                 return
             }
-
+            
             let date = ts.dateValue()
             let readable = date.formatted(
                 Date.FormatStyle()
