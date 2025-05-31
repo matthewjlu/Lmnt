@@ -83,11 +83,6 @@ public struct FriendView: View {
     }
   }
     
-    
-  struct FriendRequestUpdate: Codable, Sendable {
-    let friendRequests: [String]
-  }
-
   // lookup the entered code and add to the found user's friendRequests array
   @MainActor
   private func lookupFriendCode(_ code: String) {
@@ -105,18 +100,15 @@ public struct FriendView: View {
         //doc is a QueryDocumentSnapshot
         if let doc = snapshot.documents.first {
             //then we append the user's email to the person who's friend code we found
-            
             let data = doc.data()
             guard var existingReq = data["friendRequests"] as? [String]
             else {
                 return
             }
-            
             if let myEmail = authVM.currentUser?.email {
                 existingReq.append(myEmail)
             }
-            let payload = FriendRequestUpdate(friendRequests: existingReq)
-            try doc.reference.setData(from: payload, merge: true)
+            try await doc.reference.setData(["friendRequests": existingReq], merge: true)
         } else {
           return
         }
