@@ -9,6 +9,7 @@ import SwiftUI
 import FirebaseCore
 import FirebaseFirestore
 import CoreText
+import FamilyControls
 
 @main
 struct LockInApp: App {

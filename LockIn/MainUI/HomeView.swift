@@ -1,9 +1,12 @@
 import SwiftUI
 import UIKit
 import FirebaseFirestore
+import FamilyControls
 
 struct HomeView: View {
     @EnvironmentObject private var authVM: AuthViewModel
+    @State private var isPresented = false
+    @StateObject private var model = ScreenTimeViewModel()
     private let bgImage  = "image1_1950"
     private let buttonBg = "image2_1953"
     private let lockIcon = "image3_2166"
@@ -58,7 +61,7 @@ struct HomeView: View {
                     Spacer()
 
                     Button {
-                        // add action later
+                        isPresented = true
                     } label: {
                         ZStack {
                             Image(buttonBg)
@@ -75,6 +78,7 @@ struct HomeView: View {
                             }
                         }
                     }
+                    .familyActivityPicker(isPresented: $isPresented, selection: $model.selectionToDiscourage)
                     .padding(.bottom, 180)
                 }
                 .padding(.horizontal, 24)
