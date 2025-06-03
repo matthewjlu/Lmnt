@@ -28,7 +28,7 @@ public struct PartyView: View {
                         Task {
                             let vm = PartyViewModel()
                             do {
-                                try await vm.createParty(userId: uid, email: email)
+                                try await _ = vm.createParty(userId: uid, email: email)
                             } catch {
                             }
                         }
