@@ -91,8 +91,11 @@ struct HomeView: View {
                         }
                     }
                     .familyActivityPicker(isPresented: $isPresented, selection: $model.selectionToDiscourage)
-                    .onChange(of: isPresented) {
-                        blockApps()
+                    .onChange(of: isPresented) {oldValue, newValue in
+                        if oldValue == true && newValue == false {
+                            blockApps()
+                            return
+                        }
                     }
                     .padding(.bottom, 180)
                 }
