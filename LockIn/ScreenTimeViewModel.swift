@@ -10,11 +10,14 @@ import FirebaseAuth
 import FirebaseFirestore
 import FamilyControls
 
-@MainActor
 class ScreenTimeViewModel: ObservableObject {
     @Published var selectionToDiscourage: FamilyActivitySelection = .init()
     
     init() {
         
+    }
+    
+    func fetchData() async {
+        print(self.selectionToDiscourage.applications)
     }
 }
