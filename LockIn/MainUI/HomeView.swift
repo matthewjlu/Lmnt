@@ -2,6 +2,12 @@ import SwiftUI
 import UIKit
 import FirebaseFirestore
 import FamilyControls
+import DeviceActivity
+
+
+extension DeviceActivityEvent.Name {
+    static let discouraged = Self("encourage")
+}
 
 struct HomeView: View {
     @EnvironmentObject private var authVM: AuthViewModel
@@ -10,7 +16,7 @@ struct HomeView: View {
     private let bgImage  = "image1_1950"
     private let buttonBg = "image2_1953"
     private let lockIcon = "image3_2166"
-
+    
     var body: some View {
         GeometryReader { geo in
             let topInset = geo.safeAreaInsets.top
@@ -59,6 +65,12 @@ struct HomeView: View {
                     }
 
                     Spacer()
+                    
+                    Button("Check Data") {
+                        Task {
+                            await model.fetchData()
+                        }
+                    }
 
                     Button {
                         isPresented = true
@@ -79,6 +91,9 @@ struct HomeView: View {
                         }
                     }
                     .familyActivityPicker(isPresented: $isPresented, selection: $model.selectionToDiscourage)
+                    .onChange(of: isPresented) {
+                        blockApps()
+                    }
                     .padding(.bottom, 180)
                 }
                 .padding(.horizontal, 24)
