@@ -66,9 +66,9 @@ struct HomeView: View {
 
                     Spacer()
                     
-                    Button("Check Data") {
+                    Button("Stop Blocking") {
                         Task {
-                            await model.fetchData()
+                            stopBlocking()
                         }
                     }
 
@@ -94,6 +94,7 @@ struct HomeView: View {
                     .onChange(of: isPresented) {oldValue, newValue in
                         if oldValue == true && newValue == false {
                             blockApps(tokens: model.selectionToDiscourage.applicationTokens)
+//                            shortBlocking(tokens: model.selectionToDiscourage.applicationTokens)
                             return
                         }
                     }
