@@ -15,23 +15,20 @@ extension ManagedSettingsStore.Name {
 }
 
 class ActivityMonitor: DeviceActivityMonitor{
-    private var model = ScreenTimeViewModel()
-    //let store = ManagedSettingsStore()
     
-    let tokens: Set<ApplicationToken>
     let store = ManagedSettingsStore(named: .testBlock)
-        
-    init(tokens: Set<ApplicationToken>) {
-        self.tokens = tokens
-        super.init()
+    //need to make this static so that when Apple creates its own instance it still sees the tokens it needs to block
+    private static var tokensToBlock: Set<ApplicationToken> = []
+    
+    //we need to make it a static function so that it can access the static var tokensToBlock
+    static func setTokens(_ tokens: Set<ApplicationToken>) {
+        tokensToBlock = tokens
     }
     
     override func intervalDidStart(for activity: DeviceActivityName) {
         super.intervalDidStart(for: activity)
-        //let applications : Set<Application> = model.selectionToDiscourage.applications
-        let tokens: Set<ApplicationToken> = model.selectionToDiscourage.applicationTokens
-        //makes the var nil if empty or equal to tokens if it's not
-        store.shield.applications = tokens.isEmpty ? nil : tokens
+        //Self is a static property while self is an instance property
+        store.shield.applications = Self.tokensToBlock.isEmpty ? nil : Self.tokensToBlock
         print("APPS BLOCKED!")
     }
     
@@ -47,10 +44,10 @@ class ActivityMonitor: DeviceActivityMonitor{
     }
 }
 
-func blockApps() {
-    let model = ScreenTimeViewModel()
-    let appTokens = model.selectionToDiscourage.applicationTokens
-    guard !appTokens.isEmpty else { return }
+func blockApps(tokens: Set<ApplicationToken>) {
+    
+    guard !tokens.isEmpty else { return }
+    ActivityMonitor.setTokens(tokens)
     
     let now = Date()
     let cal = Calendar.current
@@ -63,7 +60,6 @@ func blockApps() {
     let name = DeviceActivityName("LMNT_Block")
     let center = DeviceActivityCenter()
     let events: [DeviceActivityEvent.Name: DeviceActivityEvent] = [:]
-    //let m = ActivityMonitor(tokens: appTokens)
     do {
         try center.startMonitoring(name, during:  schedule, events: events)
         print("Monitoring started for X minutes.")

@@ -93,7 +93,7 @@ struct HomeView: View {
                     .familyActivityPicker(isPresented: $isPresented, selection: $model.selectionToDiscourage)
                     .onChange(of: isPresented) {oldValue, newValue in
                         if oldValue == true && newValue == false {
-                            blockApps()
+                            blockApps(tokens: model.selectionToDiscourage.applicationTokens)
                             return
                         }
                     }
