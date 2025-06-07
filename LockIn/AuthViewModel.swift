@@ -16,6 +16,7 @@ class AuthViewModel: ObservableObject {
     @Published var currentUser: User?
     @Published var hoursLockedIn: Int = -1
     @Published var friendRequests: [String] = []
+    @Published var friendCode : String = "loading..."
     
     private var handle: AuthStateDidChangeListenerHandle?
     private let db = Firestore.firestore()
@@ -175,6 +176,22 @@ class AuthViewModel: ObservableObject {
             } catch {
                 hoursLockedIn = -1
             }
+        }
+    }
+
+    func loadMyCode() async {
+        guard let uid = self.currentUser?.uid else {
+          friendCode = "no user"
+          return
+        }
+        do {
+          let doc = try await Firestore.firestore()
+            .collection("users")
+            .document(uid)
+            .getDocument()
+            friendCode =  doc.get("friendCode") as? String ?? "none"
+        } catch {
+            friendCode =  "error"
         }
     }
     
