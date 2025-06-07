@@ -210,8 +210,11 @@ class AuthViewModel: ObservableObject {
 
                 //pull out the existing array (or start a new one)
                 var existingReq = data["friendRequests"] as? [String] ?? []
-
                 if let myEmail = self.currentUser?.email {
+                    //check existence so no bugs occur
+                    if existingReq.contains(myEmail) {
+                        return
+                    }
                     existingReq.append(myEmail)
                 }
 
@@ -223,6 +226,78 @@ class AuthViewModel: ObservableObject {
             }
         } catch {
             print("lookup error:", error)
+        }
+    }
+    
+    func acceptReq(request: String) async {
+        var friendReqs: [String] = []
+        var friendsList: [String] = []
+        
+        guard let uid = self.currentUser?.uid else {
+          return
+        }
+        do {
+          //find the user's friendRequests to remove the request and add to the friends field of the user
+          let doc = try await Firestore.firestore()
+            .collection("users")
+            .document(uid)
+            .getDocument()
+          friendReqs = doc.get("friendRequests") as? [String] ?? []
+          friendsList = doc.get("friends") as? [String] ?? []
+          friendReqs.removeAll { $0 == request }
+          friendsList.append(request)
+          try await doc.reference.setData(
+              ["friendRequests": friendReqs],
+              merge: true
+          )
+          try await doc.reference.setData(
+              ["friends": friendsList],
+              merge: true
+          )
+            
+          //add to the friendsList of the other user whose friendRequest got accepted
+          let snapshot = try await Firestore.firestore()
+              .collection("users")
+              .whereField("email", isEqualTo: request)
+              .limit(to: 1)
+              .getDocuments()
+          
+          if let doc = snapshot.documents.first {
+            let data = doc.data()
+            var friends: [String] = data["friends"] as? [String] ?? []
+            guard let email = self.currentUser?.email else {
+              return
+            }
+            friends.append(email)
+            try await doc.reference.setData(
+              ["friends": friends],
+              merge: true
+            )
+          }
+        } catch {
+            return
+        }
+    }
+
+    
+    func declineReq(request: String) async {
+        var friendReqs: [String] = []
+        guard let uid = self.currentUser?.uid else {
+          return
+        }
+        do {
+          let doc = try await Firestore.firestore()
+            .collection("users")
+            .document(uid)
+            .getDocument()
+          friendReqs = doc.get("friendRequests") as? [String] ?? []
+          friendReqs.removeAll { $0 == request }
+          try await doc.reference.setData(
+              ["friendRequests": friendReqs],
+              merge: true
+          )
+        } catch {
+            return
         }
     }
 
