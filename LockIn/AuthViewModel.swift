@@ -195,6 +195,38 @@ class AuthViewModel: ObservableObject {
         }
     }
     
+    func lookupFriendCode(_ code: String) async {
+        guard !code.isEmpty else { return }
+
+        do {
+            let snapshot = try await Firestore.firestore()
+                .collection("users")
+                .whereField("friendCode", isEqualTo: code)
+                .limit(to: 1)
+                .getDocuments()
+
+            if let doc = snapshot.documents.first {
+                let data = doc.data()
+
+                //pull out the existing array (or start a new one)
+                var existingReq = data["friendRequests"] as? [String] ?? []
+
+                if let myEmail = self.currentUser?.email {
+                    existingReq.append(myEmail)
+                }
+
+                //write it back to Firestore
+                try await doc.reference.setData(
+                    ["friendRequests": existingReq],
+                    merge: true
+                )
+            }
+        } catch {
+            print("lookup error:", error)
+        }
+    }
+
+    
     //basically always listening for changes to the user's friendRequests field
     func startListeningReq(uid: String) {
         listenerReq = Firestore.firestore()
