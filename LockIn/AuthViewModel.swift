@@ -211,8 +211,8 @@ class AuthViewModel: ObservableObject {
                 //pull out the existing array (or start a new one)
                 var existingReq = data["friendRequests"] as? [String] ?? []
                 if let myEmail = self.currentUser?.email {
-                    //check existence so no bugs occur
-                    if existingReq.contains(myEmail) {
+                    //check existence so no bugs occur or if we are trying to add ourselves as a friend
+                    if existingReq.contains(myEmail) || myEmail == data["email"] as? String ?? "" {
                         return
                     }
                     existingReq.append(myEmail)
