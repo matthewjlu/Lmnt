@@ -16,10 +16,12 @@ class AuthViewModel: ObservableObject {
     @Published var currentUser: User?
     @Published var hoursLockedIn: Int = -1
     @Published var friendRequests: [String] = []
+    @Published var friends: [String] = []
     @Published var friendCode : String = "loading..."
     
     private var handle: AuthStateDidChangeListenerHandle?
     private let db = Firestore.firestore()
+    private var listenerFriend: ListenerRegistration?
     private var listenerReq: ListenerRegistration?
     private var listenerHours: ListenerRegistration?
     
@@ -197,22 +199,25 @@ class AuthViewModel: ObservableObject {
     
     func lookupFriendCode(_ code: String) async {
         guard !code.isEmpty else { return }
+        guard let uid = self.currentUser?.uid else { return }
 
         do {
+            //snapshot of the databse of the person we are trying to request as a friend
             let snapshot = try await Firestore.firestore()
                 .collection("users")
                 .whereField("friendCode", isEqualTo: code)
                 .limit(to: 1)
                 .getDocuments()
-
+            
             if let doc = snapshot.documents.first {
                 let data = doc.data()
 
-                //pull out the existing array (or start a new one)
                 var existingReq = data["friendRequests"] as? [String] ?? []
+                let otherEmail = data["email"] as? String ?? ""
+
                 if let myEmail = self.currentUser?.email {
-                    //check existence so no bugs occur or if we are trying to add ourselves as a friend
-                    if existingReq.contains(myEmail) || myEmail == data["email"] as? String ?? "" {
+                    //check for if we are already in friend req, if we adding ourself, if we already in the other user's friends
+                    if existingReq.contains(myEmail) || myEmail == otherEmail || friends.contains(otherEmail) {
                         return
                     }
                     existingReq.append(myEmail)
@@ -318,6 +323,24 @@ class AuthViewModel: ObservableObject {
     //makes sure that the listener stops when the user leaves the page
     func stopListeningReq() {
         listenerReq?.remove()
+    }
+    
+    //basically always listening for changes to the user's friends field
+    func startListeningFriend(uid: String) {
+        listenerFriend = Firestore.firestore()
+            .collection("users")
+            .document(uid)
+            .addSnapshotListener { [weak self] snap, error in
+                guard let data = snap?.data(),
+                      let friends = data["friends"] as? [String]
+                else { return }
+                self?.friends = friends
+            }
+    }
+    
+    //makes sure that the listener stops when the user leaves the page
+    func stopListeningFriend() {
+        listenerFriend?.remove()
     }
     
     func startListeningHrs(uid: String) {
