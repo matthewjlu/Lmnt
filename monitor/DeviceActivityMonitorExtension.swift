@@ -4,32 +4,30 @@
 //
 //  Created by Matthew Lu on 6/5/25.
 //
-
 import Foundation
 import ManagedSettings
 import FamilyControls
 import DeviceActivity
 
-class ActivityMonitor: DeviceActivityMonitor {
+class DeviceActivityMonitorExtension: DeviceActivityMonitor {
+    private static let store = ManagedSettingsStore()
     
     override func intervalDidStart(for activity: DeviceActivityName) {
+        NSLog("🔴🔴🔴 BLOCKING STARTED!")
         super.intervalDidStart(for: activity)
+        NSLog("🔴🔴🔴 BLOCKING START COMPLETED!")
     }
-    
-    override func intervalDidEnd(for activity: DeviceActivityName) {
-        super.intervalDidEnd(for: activity)
         
-        let store = ManagedSettingsStore()
-        store.shield.applications = nil
-        store.clearAllSettings()
+    override func intervalDidEnd(for activity: DeviceActivityName) {
+        NSLog("🔴🔴🔴 Interval ended - clearing restrictions")
+        super.intervalDidEnd(for: activity)
+        Self.store.clearAllSettings()
+        NSLog("🔴🔴🔴 All settings cleared")
     }
     
     override func eventDidReachThreshold(_ event: DeviceActivityEvent.Name, activity: DeviceActivityName) {
         super.eventDidReachThreshold(event, activity: activity)
-        
-        let store = ManagedSettingsStore()
-        store.shield.applications = nil
-        store.clearAllSettings()
+        Self.store.clearAllSettings()
     }
     
     override func intervalWillStartWarning(for activity: DeviceActivityName) {
@@ -50,3 +48,4 @@ class ActivityMonitor: DeviceActivityMonitor {
         // Handle the warning before the event reaches its threshold.
     }
 }
+

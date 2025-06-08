@@ -93,7 +93,7 @@ struct HomeView: View {
                     .familyActivityPicker(isPresented: $isPresented, selection: $model.selectionToDiscourage)
                     .onChange(of: isPresented) {oldValue, newValue in
                         if oldValue == true && newValue == false {
-                            blockApps(tokens: model.selectionToDiscourage.applicationTokens)
+                            blockApps(selection: model.selectionToDiscourage)
 //                            shortBlocking(tokens: model.selectionToDiscourage.applicationTokens)
                             return
                         }
@@ -112,4 +112,5 @@ struct HomeView_Previews: PreviewProvider {
           .environmentObject(AuthViewModel())
     }
 }
+
 

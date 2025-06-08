@@ -25,7 +25,7 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "51E1AA872DF2466E0060D5AD"
+               BlueprintIdentifier = "51E1AB512DF56BD10060D5AD"
                BuildableName = "monitor.appex"
                BlueprintName = "monitor"
                ReferencedContainer = "container:LMNT.xcodeproj">
