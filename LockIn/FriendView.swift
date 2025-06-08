@@ -1,3 +1,11 @@
+//
+//  FriendView.swift
+//  LockIn
+//
+//  Created by Matthew Lu on 5/27/25.
+//
+
+
 import SwiftUI
 import FirebaseFirestore
 

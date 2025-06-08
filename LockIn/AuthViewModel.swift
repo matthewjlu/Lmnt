@@ -199,7 +199,6 @@ class AuthViewModel: ObservableObject {
     
     func lookupFriendCode(_ code: String) async {
         guard !code.isEmpty else { return }
-        guard let uid = self.currentUser?.uid else { return }
 
         do {
             //snapshot of the databse of the person we are trying to request as a friend
