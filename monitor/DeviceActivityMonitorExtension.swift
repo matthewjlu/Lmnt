@@ -13,16 +13,12 @@ class DeviceActivityMonitorExtension: DeviceActivityMonitor {
     private static let store = ManagedSettingsStore()
     
     override func intervalDidStart(for activity: DeviceActivityName) {
-        NSLog("🔴🔴🔴 BLOCKING STARTED!")
         super.intervalDidStart(for: activity)
-        NSLog("🔴🔴🔴 BLOCKING START COMPLETED!")
     }
         
     override func intervalDidEnd(for activity: DeviceActivityName) {
-        NSLog("🔴🔴🔴 Interval ended - clearing restrictions")
         super.intervalDidEnd(for: activity)
         Self.store.clearAllSettings()
-        NSLog("🔴🔴🔴 All settings cleared")
     }
     
     override func eventDidReachThreshold(_ event: DeviceActivityEvent.Name, activity: DeviceActivityName) {

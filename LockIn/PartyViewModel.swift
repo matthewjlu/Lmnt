@@ -20,24 +20,56 @@ class PartyViewModel: ObservableObject {
         partiesCol = db.collection("parties")
     }
 
-    // 1) create /parties/{autoID}
+    func randomString(length: Int) -> String {
+        let characters = Array("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijlkmnopqrstuvwxyz0123456789")
+        return String((0..<length).compactMap { _ in characters.randomElement() })
+    }
+    
+    // 1) create /parties/{partyCode}
     // 2) seed with [email]
     // 3) write partyCode back to /users/{userId}
     func createParty(userId: String, email: String) async throws -> String {
-        // creates new document with random ID
-        let newPartyRef = partiesCol.document()
-        // pulls out the auto-generated ID
-        let partyId = newPartyRef.documentID
-
+        var code: String
+        var snapshot: QuerySnapshot
+        var userSnapshot: DocumentSnapshot
+        
+        //error checking to see if user already has partyCode
+        userSnapshot = try await db
+                    .collection("users")
+                    .document(userId)
+                    .getDocument()
+        //another error check to see if user is already in another party
+        snapshot = try await db
+                    .collection("parties")
+                    .whereField("members", arrayContains: email)
+                    .limit(to: 1)
+                    .getDocuments()
+        
+        if userSnapshot.data()?["partyCode"] as! String != "" || !snapshot.documents.isEmpty{
+            throw NSError(domain: "", code: 0, userInfo: [NSLocalizedDescriptionKey : "You can only have one party!"])
+        }
+        
+        repeat {
+            code = randomString(length: 10)
+            snapshot = try await db
+                        .collection("users")
+                        .whereField("partyCode", isEqualTo: code)
+                        .limit(to: 1)
+                        .getDocuments()
+        } while !snapshot.documents.isEmpty
+        
+        let newPartyRef = partiesCol.document(code)
         // write initial members array
-        try await newPartyRef.setData(["members": [email]])
+        try await newPartyRef.setData([
+            "members": [email],
+            "leader": [email]])
         // update the user's partyCode (merge so we don't clobber other fields)
         try await db
             .collection("users")
             .document(userId)
-            .setData(["partyCode": partyId], merge: true)
+            .setData(["partyCode": code], merge: true)
 
-        return partyId
+        return code
     }
 
     // 1) fetch users/{userId}.partyCode

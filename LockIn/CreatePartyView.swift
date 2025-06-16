@@ -1,24 +1,23 @@
 //
-//  PartyView.swift
-//  LockIn
+//  CreatePartyView.swift
+//  LMNT
 //
-//  Created by Matthew Lu on 5/15/25.
+//  Created by Matthew Lu on 6/16/25.
 //
 
 import SwiftUI
 
-public struct PartyView: View {
+public struct CreatePartyView: View {
     @EnvironmentObject private var authVM: AuthViewModel
     @State private var showFriendsSidebar = false
-    
-    private let bgImage = "image1_1950"
+    //binding creates a two way connection between this view and HomePartyView
+    @Binding var path: NavigationPath
+    let partyId : String
+    private let bgImage = "image1_2005"
     
     public var body: some View {
         ZStack {
-            Image(bgImage)
-                .resizable()
-                .scaledToFill()
-                .ignoresSafeArea()
+            BackgroundImageView(imageName: bgImage)
             
             VStack(spacing: 16) {
                 //invite Friends Button
@@ -38,20 +37,8 @@ public struct PartyView: View {
                     .cornerRadius(10)
                 }
                 
-                //create Party
-                if let uid = authVM.currentUser?.uid,
-                   let email = authVM.currentUser?.email
-                {
-                    Button("Create Party") {
-                        Task {
-                            let vm = PartyViewModel()
-                            do {
-                                try await _ = vm.createParty(userId: uid, email: email)
-                            } catch {
-                            }
-                        }
-                    }
-                }
+                Text("Party Code: \(partyId)")
+                    .foregroundColor(.white)
                 
                 //request to join
                 if let uid = authVM.currentUser?.uid {
@@ -86,6 +73,7 @@ public struct PartyView: View {
                 .environmentObject(authVM)
         }
         .onAppear {
+            print("CreatePartyView appeared with partyId: \(partyId)")
             //load friends when view appears
             if let uid = authVM.currentUser?.uid {
                 authVM.startListeningFriend(uid: uid)
@@ -96,6 +84,7 @@ public struct PartyView: View {
         }
     }
 }
+
 
 //friends Sidebar View
 struct FriendsSidebarView: View {
@@ -229,10 +218,3 @@ struct FriendInviteRow: View {
         .buttonStyle(PlainButtonStyle())
     }
 }
-
-#Preview {
-    PartyView()
-        .environmentObject(AuthViewModel())
-}
-
-

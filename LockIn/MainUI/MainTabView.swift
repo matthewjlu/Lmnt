@@ -37,7 +37,7 @@ struct MainTabView: View {
             }
 
             NavigationStack {
-                PartyView()
+                HomePartyView()
             }
             .tag(TabDestination.party)
             .tabItem {

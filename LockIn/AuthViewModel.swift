@@ -18,12 +18,14 @@ class AuthViewModel: ObservableObject {
     @Published var friendRequests: [String] = []
     @Published var friends: [String] = []
     @Published var friendCode : String = "loading..."
+    @Published var userPartyCode: String = ""
     
     private var handle: AuthStateDidChangeListenerHandle?
     private let db = Firestore.firestore()
     private var listenerFriend: ListenerRegistration?
     private var listenerReq: ListenerRegistration?
     private var listenerHours: ListenerRegistration?
+    private var hasCheckedPartyCode = false
     
     init() {
         // 1) read the persisted user (if any)
@@ -37,6 +39,7 @@ class AuthViewModel: ObservableObject {
         handle = Auth.auth().addStateDidChangeListener { [weak self] _, user in
             self?.currentUser = user
             self?.loadHours()
+            self?.hasCheckedPartyCode = false
         }
     }
     
@@ -196,6 +199,62 @@ class AuthViewModel: ObservableObject {
             friendCode =  "error"
         }
     }
+    
+    func checkExistingPartyCode() async -> String? {
+           //prevent multiple checks from happening
+           guard !hasCheckedPartyCode else { return userPartyCode.isEmpty ? nil : userPartyCode }
+           
+           guard let uid = currentUser?.uid else { return nil }
+           
+           do {
+               //get the user's current party code from Firestore
+               let userDoc = try await db
+                   .collection("users")
+                   .document(uid)
+                   .getDocument()
+               
+               if let partyCode = userDoc.data()?["partyCode"] as? String,
+                  !partyCode.isEmpty {
+                   
+                   //check if the party still exists
+                   let partyDoc = try await db.collection("parties")
+                       .document(partyCode)
+                       .getDocument()
+                   
+                   if partyDoc.exists {
+                       print("Found existing party: \(partyCode)")
+                       userPartyCode = partyCode
+                       hasCheckedPartyCode = true
+                       return partyCode
+                   } else {
+                       // Party doesn't exist anymore, clear the user's partyCode
+                       try await db
+                           .collection("users")
+                           .document(uid)
+                           .setData(["partyCode": ""], merge: true)
+                       print("Party no longer exists, cleared partyCode")
+                       userPartyCode = ""
+                       hasCheckedPartyCode = true
+                       return nil
+                   }
+               } else {
+                   userPartyCode = ""
+                   hasCheckedPartyCode = true
+                   return nil
+               }
+               
+           } catch {
+               print("Error checking existing party code: \(error)")
+               hasCheckedPartyCode = true
+               return nil
+           }
+       }
+       
+       //helper function to reset party code chec
+       func resetPartyCodeCheck() {
+           hasCheckedPartyCode = false
+           userPartyCode = ""
+       }
     
     func lookupFriendCode(_ code: String) async {
         guard !code.isEmpty else { return }
