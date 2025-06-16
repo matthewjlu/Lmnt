@@ -71,7 +71,7 @@ public struct HomePartyView: View {
             }
         }
         //make another check to see if user changed
-        .onChange(of: authVM.currentUser) { _, _ in
+        .onChange(of: authVM.userPartyCode) { _, _ in
             Task {
                 let _ = await authVM.checkExistingPartyCode()
                 if authVM.userPartyCode != "" {

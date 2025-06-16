@@ -94,7 +94,6 @@ struct HomeView: View {
                     .onChange(of: isPresented) {oldValue, newValue in
                         if oldValue == true && newValue == false {
                             blockApps(selection: model.selectionToDiscourage)
-//                            shortBlocking(tokens: model.selectionToDiscourage.applicationTokens)
                             return
                         }
                     }

@@ -77,13 +77,23 @@ public struct CreatePartyView: View {
             //load friends when view appears
             if let uid = authVM.currentUser?.uid {
                 authVM.startListeningFriend(uid: uid)
+                authVM.startListeningPartyCode(uid: uid)
             }
         }
         .onDisappear {
             authVM.stopListeningFriend()
+            authVM.stopListeningPartyCode()
+        }
+        .onChange(of: authVM.userPartyCode) { _, _ in
+            Task {
+                if authVM.userPartyCode == "" {
+                    path = NavigationPath()
+                }
+            }
         }
     }
 }
+
 
 
 //friends Sidebar View

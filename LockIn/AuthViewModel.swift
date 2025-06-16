@@ -25,6 +25,7 @@ class AuthViewModel: ObservableObject {
     private var listenerFriend: ListenerRegistration?
     private var listenerReq: ListenerRegistration?
     private var listenerHours: ListenerRegistration?
+    private var listenerPartyCode: ListenerRegistration?
     private var hasCheckedPartyCode = false
     
     init() {
@@ -416,6 +417,22 @@ class AuthViewModel: ObservableObject {
     
     func stopListeningHrs() {
         listenerHours?.remove()
+    }
+    
+    func startListeningPartyCode(uid: String) {
+        listenerPartyCode = Firestore.firestore()
+            .collection("users")
+            .document(uid)
+            .addSnapshotListener { [weak self] snap, error in
+                guard let data = snap?.data(),
+                      let requests = data["partyCode"] as? String
+                else { return }
+                self?.userPartyCode = requests
+            }
+    }
+    
+    func stopListeningPartyCode() {
+        listenerPartyCode?.remove()
     }
 }
 
