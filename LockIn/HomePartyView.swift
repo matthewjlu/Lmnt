@@ -35,9 +35,8 @@ public struct HomePartyView: View {
                             Task {@MainActor in
                                 let vm = PartyViewModel()
                                 do {
+                                    //the on change will handle the rest
                                     code = try await vm.createParty(userId: uid, email: email)
-                                    let newRoute = Route.createParty(id: code)
-                                    path.append(newRoute)
                                 } catch {
                                     errorMessage = error.localizedDescription
                                     print("Error creating party: \(error)")
