@@ -34,13 +34,14 @@ class UserDBViewModel: ObservableObject {
             //shorthand for the type Array<String>
             "friends": [String](),
             "friendRequests": [String](),
+            "partyRequests": [String: String](),
             "hoursLockedIn": 0
         ]
         
         try await self.userRef.setData(data)
         
         var listener: ListenerRegistration?
-            
+        
         listener = userRef.addSnapshotListener { snapshot, error in
             guard let snap = snapshot, error == nil else {
                 print("Error listening for changes:", error!.localizedDescription)
