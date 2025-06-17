@@ -53,6 +53,11 @@ public struct CreatePartyView: View {
                         }
                     }
                 }
+                Button("Leave Party") {
+                    Task {
+                        await authVM.leaveParty(partyId: partyId)
+                    }
+                }
             }
             .padding()
         }

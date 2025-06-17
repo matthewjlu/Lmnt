@@ -62,7 +62,7 @@ class PartyViewModel: ObservableObject {
         // write initial members array
         try await newPartyRef.setData([
             "members": [email],
-            "leader": [email]])
+            "leader": email])
         // update the user's partyCode (merge so we don't clobber other fields)
         try await db
             .collection("users")
@@ -107,20 +107,7 @@ class PartyViewModel: ObservableObject {
 
         return "SUCCESS!"
     }
-
-    // flip wantsToLeave = true under /parties/{partyId}/leaveRequests/{userId}
-    func requestLeave(partyId: String, userId: String) async throws {
-      let requestRef = partiesCol
-          .document(partyId)
-          .collection("leaveRequests")
-          .document(userId)
-
-      try await requestRef.setData([
-        "requestedAt": FieldValue.serverTimestamp()
-      ])
-    }
-
-
+    
     // flip wantsToJoin = true under /parties/{partyId}/joinRequests/{userId}
     func requestJoin(partyId: String, userId: String) async throws {
         let requestRef = partiesCol

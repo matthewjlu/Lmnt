@@ -73,7 +73,32 @@ public struct HomePartyView: View {
                     .environmentObject(authVM)
             }
         }
+        //makes persistent party view
         .onAppear {
+            if let uid = authVM.currentUser?.uid {
+                authVM.startListeningFriend(uid: uid)
+                authVM.startListeningPartyCode(uid: uid)
+            }
+            Task {
+                let _ = await authVM.checkExistingPartyCode()
+                if authVM.userPartyCode != "" {
+                    //whenever you append to path, navigation destination fires
+                    let newRoute = Route.createParty(id: authVM.userPartyCode)
+                    path.append(newRoute)
+                }
+            }
+        }
+        .onDisappear {
+            authVM.stopListeningFriend()
+            authVM.stopListeningPartyCode()
+        }
+    
+        .onChange(of: authVM.userPartyCode) {
+            //logic to make sure that we go back to homepartyview if disband party
+            if authVM.userPartyCode == "" {
+                path = NavigationPath()
+            }
+            //logic for instantly switching to createpartyview if accept invitation
             Task {
                 let _ = await authVM.checkExistingPartyCode()
                 if authVM.userPartyCode != "" {
