@@ -33,9 +33,9 @@ struct LoginView: View {
               Task {
                 do {
                   let result = try await authVM.signIn(email: email, password: password)
-                  print("✅", result)
+                  print("Yes", result)
                 } catch {
-                  print("🛑",error.localizedDescription)
+                  print("No",error.localizedDescription)
                   alertMessage = error.localizedDescription
                   showingAlert = true
                 }
