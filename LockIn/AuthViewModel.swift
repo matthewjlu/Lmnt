@@ -19,6 +19,7 @@ class AuthViewModel: ObservableObject {
     @Published var friends: [String] = []
     @Published var friendCode : String = "loading..."
     @Published var userPartyCode: String = ""
+    @Published var incomingPartyInvites: [String: String] = [:]
     
     private var handle: AuthStateDidChangeListenerHandle?
     private let db = Firestore.firestore()
@@ -26,6 +27,7 @@ class AuthViewModel: ObservableObject {
     private var listenerReq: ListenerRegistration?
     private var listenerHours: ListenerRegistration?
     private var listenerPartyCode: ListenerRegistration?
+    private var listenerPartyReq: ListenerRegistration?
     private var hasCheckedPartyCode = false
     
     init() {
@@ -364,6 +366,95 @@ class AuthViewModel: ObservableObject {
             return
         }
     }
+    
+    func sendPartyInvite(selectedFriends: Set<String>) async {
+        var partyCode = ""
+        guard let userEmail = self.currentUser?.email else {
+          return
+        }
+        
+        guard let uid = self.currentUser?.uid else {
+          return
+        }
+        
+        do {
+            let userSnapshot = try await Firestore.firestore()
+                .collection("users")
+                .document(uid)
+                .getDocument()
+            partyCode =  userSnapshot.get("partyCode") as? String ?? "none"
+        } catch {
+            return
+        }
+        
+        do {
+            for email in selectedFriends{
+                let snapshot = try await Firestore.firestore()
+                    .collection("users")
+                    .whereField("email", isEqualTo: email)
+                    .limit(to: 1)
+                    .getDocuments()
+                
+                if let doc = snapshot.documents.first {
+                    //ensure the dictionary is built on the same actor as any UI state or other non-Sendable properties it might touch, so there’s no cross-actor “hop"
+                    let path = FieldPath(["partyRequests", userEmail])
+                    try await doc.reference.updateData([path: partyCode])
+                }
+            }
+        } catch {
+            return
+        }
+    }
+    
+    func removePartyReq() async {
+        guard let uid = self.currentUser?.uid else {
+          return
+        }
+        do {
+          let doc = Firestore.firestore()
+            .collection("users")
+            .document(uid)
+
+            try await doc.updateData([
+                "partyRequests": [:]
+            ])
+        } catch {
+            return
+        }
+    }
+    
+    func acceptPartyReq(partyId: String) async {
+        guard let email = self.currentUser?.email else {
+          return
+        }
+        
+        guard let uid = self.currentUser?.uid else {
+          return
+        }
+        
+        do {
+           let doc = Firestore.firestore()
+                .collection("parties")
+                .document(partyId)
+            
+            let userSnapshot = try await Firestore.firestore()
+                .collection("users")
+                .document(uid)
+                .getDocument()
+            
+            let snap = try await doc.getDocument()
+            
+            try await doc.updateData([
+                "members": FieldValue.arrayUnion([email])
+            ])
+            
+            try await userSnapshot.reference.setData([
+                "partyCode": partyId
+            ], merge: true)
+        } catch {
+            return
+        }
+    }
 
     
     //basically always listening for changes to the user's friendRequests field
@@ -433,6 +524,18 @@ class AuthViewModel: ObservableObject {
     
     func stopListeningPartyCode() {
         listenerPartyCode?.remove()
+    }
+    
+    func startListeningPartyRequests(uid: String) {
+        listenerPartyReq = Firestore.firestore()
+            .collection("users")
+            .document(uid)
+            .addSnapshotListener { [weak self] snap, error in
+                guard let data = snap?.data(),
+                      let requests = data["partyRequests"] as? [String: String]
+                else { return }
+                self?.incomingPartyInvites = requests
+            }
     }
 }
 

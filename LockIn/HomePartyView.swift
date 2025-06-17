@@ -44,6 +44,19 @@ public struct HomePartyView: View {
                                 }
                             }
                         }
+                        
+                        //request to join
+                        if let uid = authVM.currentUser?.uid {
+                            Button("Request to Join Party") {
+                                Task {
+                                    let vm = PartyViewModel()
+                                    do {
+                                        try await vm.requestJoin(partyId: "SuvwUjq8JoXg0POZ8876", userId: uid)
+                                    } catch {
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
                 .padding()
@@ -61,17 +74,6 @@ public struct HomePartyView: View {
             }
         }
         .onAppear {
-            Task {
-                let _ = await authVM.checkExistingPartyCode()
-                if authVM.userPartyCode != "" {
-                    //whenever you append to path, navigation destination fires
-                    let newRoute = Route.createParty(id: authVM.userPartyCode)
-                    path.append(newRoute)
-                }
-            }
-        }
-        //make another check to see if user changed
-        .onChange(of: authVM.userPartyCode) { _, _ in
             Task {
                 let _ = await authVM.checkExistingPartyCode()
                 if authVM.userPartyCode != "" {

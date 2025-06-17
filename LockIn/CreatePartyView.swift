@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import FirebaseFirestore
 
 public struct CreatePartyView: View {
     @EnvironmentObject private var authVM: AuthViewModel
@@ -39,20 +40,7 @@ public struct CreatePartyView: View {
                 
                 Text("Party Code: \(partyId)")
                     .foregroundColor(.white)
-                
-                //request to join
-                if let uid = authVM.currentUser?.uid {
-                    Button("Request to Join Party") {
-                        Task {
-                            let vm = PartyViewModel()
-                            do {
-                                try await vm.requestJoin(partyId: "SuvwUjq8JoXg0POZ8876", userId: uid)
-                            } catch {
-                            }
-                        }
-                    }
-                }
-                
+    
                 //ready Up
                 if let uid = authVM.currentUser?.uid {
                     Button("Ready Up") {
@@ -73,7 +61,6 @@ public struct CreatePartyView: View {
                 .environmentObject(authVM)
         }
         .onAppear {
-            print("CreatePartyView appeared with partyId: \(partyId)")
             //load friends when view appears
             if let uid = authVM.currentUser?.uid {
                 authVM.startListeningFriend(uid: uid)
@@ -170,8 +157,10 @@ struct FriendsSidebarView: View {
                 
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Send Invites") {
-                        sendInvites()
-                        dismiss()
+                        Task {
+                            await authVM.sendPartyInvite(selectedFriends: selectedFriends)
+                            dismiss()
+                        }
                     }
                     .disabled(selectedFriends.isEmpty)
                     .fontWeight(.semibold)
@@ -180,11 +169,6 @@ struct FriendsSidebarView: View {
         }
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
-    }
-    
-    private func sendInvites() {
-        // TODO: implement party invitation logic, use the selectedFriends set
-        print("Sending invites to: \(selectedFriends)")
     }
 }
 

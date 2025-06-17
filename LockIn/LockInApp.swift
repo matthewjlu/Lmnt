@@ -50,7 +50,7 @@ struct LockInApp: App {
                 forResource: fontName,
                 withExtension: "ttf"
             ) else {
-                print("❌ Failed to find \(fontName).ttf in bundle")
+                print("Failed to find \(fontName).ttf in bundle")
                 continue
             }
             var error: Unmanaged<CFError>?
@@ -60,7 +60,7 @@ struct LockInApp: App {
                 &error
             )
             if let err = error?.takeRetainedValue() {
-                print("⚠️ Error registering font \(fontName):", err)
+                print("Error registering font \(fontName):", err)
             }
         }
     }

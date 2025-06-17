@@ -139,11 +139,11 @@ class PartyViewModel: ObservableObject {
         .document(partyId)
         .collection("readyUp")
         .document("members")
-
-      // Append this userId to the "members" array
-      try await membersDoc.updateData([
-        "ready": FieldValue.arrayUnion([userId])
-      ])
+        
+      let updates: [String: Any] = await MainActor.run {
+        ["ready": FieldValue.arrayUnion([userId])]
+      }
+      try await membersDoc.updateData(updates)
     }
 }
 
