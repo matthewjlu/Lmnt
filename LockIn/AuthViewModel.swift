@@ -396,9 +396,11 @@ class AuthViewModel: ObservableObject {
                     .getDocuments()
                 
                 if let doc = snapshot.documents.first {
-                    //ensure the dictionary is built on the same actor as any UI state or other non-Sendable properties it might touch, so there’s no cross-actor “hop"
-                    let path = FieldPath(["partyRequests", userEmail])
-                    try await doc.reference.updateData([path: partyCode])
+                    try await doc.reference.setData([
+                        "partyRequests": [
+                            userEmail: partyCode
+                        ]
+                    ], merge: true)
                 }
             }
         } catch {
@@ -415,9 +417,9 @@ class AuthViewModel: ObservableObject {
             .collection("users")
             .document(uid)
 
-            try await doc.updateData([
+            try await doc.setData([
                 "partyRequests": [:]
-            ])
+            ], merge: true)
         } catch {
             return
         }
@@ -442,15 +444,68 @@ class AuthViewModel: ObservableObject {
                 .document(uid)
                 .getDocument()
             
-            let snap = try await doc.getDocument()
             
-            try await doc.updateData([
+            try await doc.setData([
                 "members": FieldValue.arrayUnion([email])
-            ])
+            ], merge: true)
             
             try await userSnapshot.reference.setData([
                 "partyCode": partyId
             ], merge: true)
+        } catch {
+            return
+        }
+    }
+    
+    func leaveParty(partyId: String) async {
+        guard let email = self.currentUser?.email else {
+          return
+        }
+        
+        guard let uid = self.currentUser?.uid else {
+          return
+        }
+        
+        do {
+           let doc = Firestore.firestore()
+                .collection("parties")
+                .document(partyId)
+            
+            let userSnapshot = try await Firestore.firestore()
+                .collection("users")
+                .document(uid)
+                .getDocument()
+            
+            let snapshot = try await doc.getDocument()
+            
+            if let data = snapshot.data(), let leader = data["leader"] as? String {
+                //if the leader leaves, then disband the party
+                if leader == email {
+                    let members = data["members"] as? [String] ?? []
+                    for member in members {
+                        let userSnapshot = try await Firestore.firestore()
+                            .collection("users")
+                            .whereField("email", isEqualTo: member)
+                            .limit(to: 1)
+                            .getDocuments()
+                        if let doc = userSnapshot.documents.first {
+                            try await doc.reference.setData(["partyCode": ""], merge : true)
+                        }
+                    }
+                    try await doc.delete()
+                //make it so that if the leader doesn't leave, just remove that person
+                } else {
+                    try await userSnapshot.reference.setData([
+                        "partyCode": ""
+                    ], merge: true)
+                    
+                    try await doc.setData([
+                        "members": FieldValue.arrayRemove([email])
+                    ], merge: true)
+                }
+            } else {
+                return
+            }
         } catch {
             return
         }

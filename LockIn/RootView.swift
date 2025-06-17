@@ -73,7 +73,6 @@ struct RootView: View {
         }
         message: {inviter, code in
             Text("You’ve been invited to \(inviter)'s party")
-                .font(.custom("Palatino-Bold", size:20))
         }
     }
 }
