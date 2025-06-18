@@ -7,10 +7,15 @@
 
 import SwiftUI
 import FirebaseFirestore
+import FamilyControls
+import DeviceActivity
 
 public struct CreatePartyView: View {
     @EnvironmentObject private var authVM: AuthViewModel
+    @StateObject private var model = ScreenTimeViewModel()
+    @EnvironmentObject var partyManager : PartySessionManager
     @State private var showFriendsSidebar = false
+    @State private var isPresented = false
     //binding creates a two way connection between this view and HomePartyView
     @Binding var path: NavigationPath
     let partyId : String
@@ -40,22 +45,38 @@ public struct CreatePartyView: View {
                 
                 Text("Party Code: \(partyId)")
                     .foregroundColor(.white)
+                    .textSelection(.enabled)
     
                 //ready Up
-                if let uid = authVM.currentUser?.uid {
+                if let _ = authVM.currentUser?.uid, let email = authVM.currentUser?.email {
                     Button("Ready Up") {
-                        Task {
-                            let vm = PartyViewModel()
-                            do {
-                                try await vm.readyUp(partyId: "SuvwUjq8JoXg0POZ8876", userId: uid)
-                            } catch {
+                        model.selectionToDiscourage = FamilyActivitySelection()
+                        isPresented = true
+                    }
+                    .familyActivityPicker(isPresented: $isPresented, selection: $model.selectionToDiscourage)
+                    .onChange(of: isPresented) {
+                        //checking to see if the user actually clicks apps to block
+                        if !isPresented &&
+                            !(model.selectionToDiscourage.applicationTokens.isEmpty &&
+                             model.selectionToDiscourage.categoryTokens.isEmpty &&
+                             model.selectionToDiscourage.webDomainTokens.isEmpty){
+                            Task {
+                                let vm = PartyViewModel()
+                                do {
+                                    try await vm.readyUp(partyId: partyId, email: email)
+                                } catch {
+                                    return
+                                }
                             }
                         }
                     }
                 }
+                    
                 Button("Leave Party") {
                     Task {
                         await authVM.leaveParty(partyId: partyId)
+                        partyManager.allReady = false
+                        partyManager.leave()
                     }
                 }
             }
@@ -81,6 +102,11 @@ public struct CreatePartyView: View {
                 if authVM.userPartyCode == "" {
                     path = NavigationPath()
                 }
+            }
+        }
+        .onChange(of: partyManager.allReady) {
+            if partyManager.allReady {
+                blockApps(selection: model.selectionToDiscourage)
             }
         }
     }

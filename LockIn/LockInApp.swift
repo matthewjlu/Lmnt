@@ -14,6 +14,7 @@ import FamilyControls
 @main
 struct LockInApp: App {
     @StateObject private var authVM = AuthViewModel()
+    @StateObject var partyManager = PartySessionManager()
     
     init() {
         FirebaseApp.configure()
@@ -34,6 +35,13 @@ struct LockInApp: App {
         WindowGroup {
             RootView()
                 .environmentObject(authVM)
+                .environmentObject(partyManager)
+                .onReceive(authVM.$userPartyCode) {code in
+                    if code != "" {
+                        partyManager.join(partyId: code)
+                    }
+                }
+
         }
     }
     

@@ -62,7 +62,8 @@ class PartyViewModel: ObservableObject {
         // write initial members array
         try await newPartyRef.setData([
             "members": [email],
-            "leader": email])
+            "leader": email,
+            "ready": []])
         // update the user's partyCode (merge so we don't clobber other fields)
         try await db
             .collection("users")
@@ -121,16 +122,13 @@ class PartyViewModel: ObservableObject {
     }
     
     @MainActor
-    func readyUp(partyId: String, userId: String) async throws {
-      let membersDoc = partiesCol
+    func readyUp(partyId: String, email: String) async throws {
+      let snapshot = partiesCol
         .document(partyId)
-        .collection("readyUp")
-        .document("members")
         
-      let updates: [String: Any] = await MainActor.run {
-        ["ready": FieldValue.arrayUnion([userId])]
-      }
-      try await membersDoc.updateData(updates)
+      try await snapshot.setData([
+        "ready": FieldValue.arrayUnion([email])
+      ], merge: true)
     }
 }
 
