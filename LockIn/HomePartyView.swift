@@ -19,6 +19,7 @@ public struct HomePartyView: View {
     @State public var code = ""
     @State private var errorMessage: String?
     @State private var hasCheckedPartyCode = false
+    @State private var didCompleteInitialCheck = false
     
     private let bgImage = "image1_2005"
     
@@ -85,6 +86,10 @@ public struct HomePartyView: View {
                     let newRoute = Route.createParty(id: authVM.userPartyCode)
                     path.append(newRoute)
                 }
+                //make sure that the onchange and onappear don't both fire
+                DispatchQueue.main.async {
+                    didCompleteInitialCheck = true
+                }
             }
         }
         .onDisappear {
@@ -93,6 +98,9 @@ public struct HomePartyView: View {
         }
     
         .onChange(of: authVM.userPartyCode) {
+            
+            guard didCompleteInitialCheck else { return }
+            
             //logic to make sure that we go back to homepartyview if disband party
             if authVM.userPartyCode == "" {
                 path = NavigationPath()
