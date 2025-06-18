@@ -510,6 +510,23 @@ class AuthViewModel: ObservableObject {
             return
         }
     }
+    
+    func cancelReady(partyId: String) async {
+        guard let email = self.currentUser?.email else {
+          return
+        }
+        
+        do {
+           let doc = Firestore.firestore()
+                .collection("parties")
+                .document(partyId)
+
+          try await doc.setData(["ready": FieldValue.arrayRemove([email])], merge: true)
+            
+        } catch {
+            return
+        }
+    }
 
     
     //basically always listening for changes to the user's friendRequests field

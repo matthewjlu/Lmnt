@@ -87,9 +87,7 @@ public struct HomePartyView: View {
                     path.append(newRoute)
                 }
                 //make sure that the onchange and onappear don't both fire
-                DispatchQueue.main.async {
-                    didCompleteInitialCheck = true
-                }
+                didCompleteInitialCheck = true
             }
         }
         .onDisappear {
