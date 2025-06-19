@@ -8,7 +8,7 @@ import Foundation
 import ManagedSettings
 import FamilyControls
 import DeviceActivity
-func blockApps(selection: FamilyActivitySelection) {
+func blockApps(selection: FamilyActivitySelection, timeSet : Int) {
 //    guard !tokens.isEmpty else {
 //        print("No tokens provided")
 //        return
@@ -51,7 +51,7 @@ func blockApps(selection: FamilyActivitySelection) {
     let now = Date()
     let cal = Calendar.current
     let start = cal.dateComponents([.hour, .minute, .second], from: now)
-    guard let endDate = cal.date(byAdding: .minute, value: 15, to: now) else {
+    guard let endDate = cal.date(byAdding: .minute, value: timeSet, to: now) else {
         print("Failed to create end date")
         return
     }

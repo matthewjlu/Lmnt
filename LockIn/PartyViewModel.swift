@@ -130,5 +130,26 @@ class PartyViewModel: ObservableObject {
         "ready": FieldValue.arrayUnion([email])
       ], merge: true)
     }
+    
+    func checkLeader(partyId: String, email: String) async -> Bool{
+        do {
+            let snapshot = try await partiesCol
+              .document(partyId)
+              .getDocument()
+            
+            if snapshot["leader"] as! String == email {
+                return true
+            }
+        } catch {
+        }
+        return false
+    }
+    
+    func clearReady(partyId: String) async throws{
+        let snapshot = partiesCol
+          .document(partyId)
+        
+        try await snapshot.setData(["ready": []], merge: true)
+    }
 }
 

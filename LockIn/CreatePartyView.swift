@@ -14,9 +14,15 @@ public struct CreatePartyView: View {
     @EnvironmentObject private var authVM: AuthViewModel
     @StateObject private var model = ScreenTimeViewModel()
     @EnvironmentObject var partyManager : PartySessionManager
+    @StateObject private var vm = PartyViewModel()
     @State private var showFriendsSidebar = false
     @State private var isPresented = false
     @State private var isPressed = false
+    @State private var showTimePicker = false
+    @State private var partyTime: Date = .now
+    @State private var selectedHours = 0
+    @State private var selectedMinutes = 0
+    @State private var isLeader = false
     //binding creates a two way connection between this view and HomePartyView
     @Binding var path: NavigationPath
     let partyId : String
@@ -31,7 +37,11 @@ public struct CreatePartyView: View {
     }
 
     private var buttonTitle: String {
-        (isPressed && hasSelection) ? "Cancel" : "Ready Up"
+        if isLeader {
+            return (isPressed && hasSelection && (selectedHours != 0 || selectedMinutes != 0)) ? "Cancel" : "Ready Up"
+        } else {
+            return (isPressed && hasSelection) ? "Cancel" : "Ready Up"
+        }
     }
     
     public var body: some View {
@@ -80,11 +90,10 @@ public struct CreatePartyView: View {
                           Text(buttonTitle)
                         }
                         .familyActivityPicker(isPresented: $isPresented, selection: $model.selectionToDiscourage)
-                        .onChange(of: isPresented) {
-                            //make sure the user has exited the picker and has blocked something
-                            if !isPresented && hasSelection {
+                        //make it so that the leader readies up only if they pick a valid time
+                        .onChange(of: showTimePicker) {
+                            if !showTimePicker && (selectedHours != 0 || selectedMinutes != 0) {
                                 Task {
-                                    let vm = PartyViewModel()
                                     do {
                                         try await vm.readyUp(partyId: partyId, email: email)
                                     } catch {
@@ -92,9 +101,77 @@ public struct CreatePartyView: View {
                                     }
                                 }
                             }
+                        }
+                        .onChange(of: isPresented) {
+                            //make sure the user has exited the picker and has blocked something...also check if user is leader
+                            Task {
+                                if isLeader {
+                                    if !isPresented && hasSelection {
+                                        showTimePicker = true
+                                    }
+                                } else if !isPresented && hasSelection {
+                                    Task {
+                                        do {
+                                            try await vm.readyUp(partyId: partyId, email: email)
+                                        } catch {
+                                            print("readyUp failed:", error)
+                                        }
+                                    }
+                                }
+                            }
                       }
-                    
-                    
+                    //this picks the time
+                    .sheet(isPresented: $showTimePicker) {
+                        VStack(spacing: 16) {
+                            Text("How long to block apps?")
+                                .font(.headline)
+                            
+                            HStack(spacing: 20) {
+                                VStack {
+                                    Text("Hours")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                    
+                                    Picker("Hours", selection: $selectedHours) {
+                                        ForEach(0..<13, id: \.self) { hour in
+                                            Text("\(hour)")
+                                                .tag(hour)
+                                        }
+                                    }
+                                    .pickerStyle(.wheel)
+                                    .frame(width: 80)
+                                }
+                                
+                                VStack {
+                                    Text("Minutes")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                    
+                                    Picker("Minutes", selection: $selectedMinutes) {
+                                        ForEach([0, 15, 30, 45], id: \.self) { minute in
+                                            Text("\(minute)")
+                                                .tag(minute)
+                                        }
+                                    }
+                                    .pickerStyle(.wheel)
+                                    .frame(width: 80)
+                                }
+                            }
+                            
+                            Text("Block for: \(selectedHours)h \(selectedMinutes)m")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            
+                            Button("Done!") {
+                                showTimePicker = false
+                                print("Block Time Set!")
+                            }
+                            .padding(.top)
+                            .buttonStyle(.borderedProminent)
+                            .disabled(selectedHours == 0 && selectedMinutes == 0)
+                        }
+                        .padding()
+                    }
                     
                     Button("Leave Party") {
                         Task {
@@ -111,15 +188,19 @@ public struct CreatePartyView: View {
             }
             .onAppear {
                 //load friends when view appears
-                if let uid = authVM.currentUser?.uid {
+                if let uid = authVM.currentUser?.uid, let email = authVM.currentUser?.email {
                     authVM.startListeningFriend(uid: uid)
                     authVM.startListeningPartyCode(uid: uid)
+                    Task {
+                        isLeader = await vm.checkLeader(partyId: partyId, email: email)
+                    }
                 }
             }
             .onDisappear {
                 authVM.stopListeningFriend()
                 authVM.stopListeningPartyCode()
             }
+            //checks if the party disbands so that we go back to home party view
             .onChange(of: authVM.userPartyCode) { _, _ in
                 Task {
                     if authVM.userPartyCode == "" {
@@ -127,14 +208,18 @@ public struct CreatePartyView: View {
                     }
                 }
             }
+            //logic to check if everyone in the party is ready so that we can block the time
             .onChange(of: partyManager.allReady) {
                 if partyManager.allReady {
-                    blockApps(selection: model.selectionToDiscourage)
+                    //convert everything to minutes and calculate how much time we need to block for
+                    blockApps(selection: model.selectionToDiscourage, timeSet: selectedHours * 60 + selectedMinutes)
+                    Task {
+                        try await vm.clearReady(partyId: partyId)
+                    }
                 }
             }
         }
     }
-    
     
     
     //friends Sidebar View
