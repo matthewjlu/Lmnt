@@ -23,6 +23,11 @@ public struct CreatePartyView: View {
     @State private var selectedHours = 0
     @State private var selectedMinutes = 0
     @State private var isLeader = false
+    //toggles for when the timer should show
+    @State private var showTimer = false
+    @State private var timeRemaining: TimeInterval = 0
+    @State private var timer: Timer?
+    @State private var endTime: Date?
     //binding creates a two way connection between this view and HomePartyView
     @Binding var path: NavigationPath
     let partyId : String
@@ -37,6 +42,9 @@ public struct CreatePartyView: View {
     }
 
     private var buttonTitle: String {
+        if showTimer {
+            return ""
+        }
         if isLeader {
             return (isPressed && hasSelection && (selectedHours != 0 || selectedMinutes != 0)) ? "Cancel" : "Ready Up"
         } else {
@@ -69,6 +77,14 @@ public struct CreatePartyView: View {
                 Text("Party Code: \(partyId)")
                     .foregroundColor(.white)
                     .textSelection(.enabled)
+                
+                Button("Leave Party") {
+                    Task {
+                        await authVM.leaveParty(partyId: partyId)
+                        partyManager.allReady = false
+                        partyManager.leave()
+                    }
+                }
                 
                 if let _ = authVM.currentUser?.uid, let email = authVM.currentUser?.email {
                     Button {
@@ -116,10 +132,10 @@ public struct CreatePartyView: View {
                                         } catch {
                                             print("readyUp failed:", error)
                                         }
-                                    }
                                 }
                             }
-                      }
+                        }
+                    }
                     //this picks the time
                     .sheet(isPresented: $showTimePicker) {
                         VStack(spacing: 16) {
@@ -133,7 +149,7 @@ public struct CreatePartyView: View {
                                         .foregroundColor(.secondary)
                                     
                                     Picker("Hours", selection: $selectedHours) {
-                                        ForEach(0..<13, id: \.self) { hour in
+                                        ForEach(0..<24, id: \.self) { hour in
                                             Text("\(hour)")
                                                 .tag(hour)
                                         }
@@ -173,11 +189,41 @@ public struct CreatePartyView: View {
                         .padding()
                     }
                     
-                    Button("Leave Party") {
-                        Task {
-                            await authVM.leaveParty(partyId: partyId)
-                            partyManager.allReady = false
-                            partyManager.leave()
+                    //the stack for the timer countdown
+                    if showTimer {
+                        VStack(spacing: 20) {
+                            HStack(spacing: 20) {
+                                Text(timeString(time: Int(timeRemaining)))
+                                    .font(.system(size: 23, weight: .bold, design: .monospaced))
+                                    .foregroundColor(.white)
+                                
+                                Button("Break!") {
+                                    //have to add break logic
+                                    startTimer(duration: 60)
+                                }
+                                .buttonStyle(.bordered)
+                                .bold(true)
+                                .disabled(timer != nil)
+                                .font(.custom("MarkaziText-Bold", size: 22))
+                                
+                                Button("Leave!") {
+                                    breakTimer()
+                                }
+                                .buttonStyle(.bordered)
+                                .bold(true)
+                                .disabled(timer == nil)
+                                .font(.custom("MarkaziText-Bold", size: 22))
+                            }
+                            .padding(20)
+                            .background(Color.gray.opacity(0.1))
+                            .cornerRadius(15)
+                        }
+                        .padding()
+                        .onAppear {
+                            checkForRunningTimer()
+                        }
+                        .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
+                            checkForRunningTimer()
                         }
                     }
                 }
@@ -213,6 +259,8 @@ public struct CreatePartyView: View {
                 if partyManager.allReady {
                     //convert everything to minutes and calculate how much time we need to block for
                     blockApps(selection: model.selectionToDiscourage, timeSet: selectedHours * 60 + selectedMinutes)
+                    showTimer = true
+                    startTimer(duration: selectedHours * 3600 + selectedMinutes * 60)
                     Task {
                         try await vm.clearReady(partyId: partyId)
                     }
@@ -220,6 +268,109 @@ public struct CreatePartyView: View {
             }
         }
     }
+    
+    private func startTimer(duration: TimeInterval) {
+            // Store end time in UserDefaults for persistence
+            endTime = Date().addingTimeInterval(duration)
+            UserDefaults.standard.set(endTime, forKey: "timerEndTime")
+            UserDefaults.standard.set(true, forKey: "timerIsRunning")
+            
+            timeRemaining = duration
+            startInternalTimer()
+            
+            //schedule local notification
+            scheduleNotification()
+        }
+    
+    //start out timer so we know when to stop everything
+    private func startInternalTimer() {
+        timer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { _ in
+            guard let endTime = self.endTime else {
+                breakTimer()
+                return
+            }
+            
+            let remaining = endTime.timeIntervalSinceNow
+            if remaining <= 0 {
+                //timer finished
+                timerFinished()
+            } else {
+                timeRemaining = remaining
+            }
+        }
+    }
+    
+    //if the user further down the line decides to take a break
+    private func breakTimer() {
+        timer?.invalidate()
+        timer = nil
+        endTime = nil
+        timeRemaining = 0
+        showTimer = false
+        
+        //clear the persistent data
+        UserDefaults.standard.removeObject(forKey: "timerEndTime")
+        UserDefaults.standard.set(false, forKey: "timerIsRunning")
+        
+        //cancel the notifcation that was supposed to be sent out
+        UNUserNotificationCenter.current().removeAllPendingNotificationRequests()
+    }
+    
+    //checks if timer finished without sending notification
+    private func timerFinished() {
+        breakTimer()
+        print("Timer finished!")
+        showTimer = false
+        
+        //trigger haptic feedback if app is active
+        let impactFeedback = UIImpactFeedbackGenerator(style: .heavy)
+        impactFeedback.impactOccurred()
+    }
+    
+    //this is to keep the timer running if we switch views or close app
+    private func checkForRunningTimer() {
+        let isRunning = UserDefaults.standard.bool(forKey: "timerIsRunning")
+        
+        if isRunning, let savedEndTime = UserDefaults.standard.object(forKey: "timerEndTime") as? Date {
+            let remaining = savedEndTime.timeIntervalSinceNow
+            
+            if remaining <= 0 {
+                //timer finished
+                timerFinished()
+            } else {
+                //timer is still running so please continue
+                endTime = savedEndTime
+                timeRemaining = remaining
+                startInternalTimer()
+            }
+        }
+    }
+    
+    private func scheduleNotification() {
+        //request permissoin from user for notification
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in
+            if granted {
+                let content = UNMutableNotificationContent()
+                content.title = "Timer Finished"
+                content.body = "Your time block has completed!"
+                content.sound = .default
+                
+                let trigger = UNTimeIntervalNotificationTrigger(timeInterval: timeRemaining, repeats: false)
+                let request = UNNotificationRequest(identifier: "timerComplete", content: content, trigger: trigger)
+                
+                UNUserNotificationCenter.current().add(request)
+            }
+        }
+    }
+    
+    //this formats the timer
+    private func timeString(time: Int) -> String {
+        let hours = time / 3600
+        let minutes = (time % 3600) / 60
+        let seconds = time % 60
+        return String(format: "%02d:%02d:%02d", hours, minutes, seconds)
+    }
+
     
     
     //friends Sidebar View
@@ -352,3 +503,17 @@ public struct CreatePartyView: View {
         }
     }
 }
+
+#Preview {
+    
+    @Previewable @State var path: NavigationPath = {
+            var p = NavigationPath()
+            p.append(Route.createParty(id: "xZMKuxEfVX"))
+            return p
+        }()
+        
+    CreatePartyView(path: $path, partyId: "xZMKuxEfVX")
+        .environmentObject(AuthViewModel())
+        .environmentObject(PartySessionManager())
+}
+
