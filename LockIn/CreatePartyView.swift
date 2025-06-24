@@ -10,121 +10,184 @@ import FirebaseFirestore
 import FamilyControls
 import DeviceActivity
 
-public struct CreatePartyView: View {
-    @EnvironmentObject private var authVM: AuthViewModel
-    @StateObject private var model = ScreenTimeViewModel()
-    @EnvironmentObject var partyManager : PartySessionManager
-    @StateObject private var vm = PartyViewModel()
-    @State private var showFriendsSidebar = false
-    //toggles the friend sidebar, the family picker, and the time selector
-    @State private var isPresented = false
-    //deals with the ready up / cancel button
-    @State private var isPressed = false
-    @State private var showTimePicker = false
-    //measures when to queue the stop timer functionalities
-    @State private var partyTime: Date = .now
-    @State private var selectedHours = 0
-    @State private var selectedMinutes = 0
-    @State private var isLeader = false
-    //toggles for when the timer should show
-    @State private var showTimer = false
-    @State private var timeRemaining: TimeInterval = 0
-    @State private var timer: Timer?
-    @State private var endTime: Date?
-    //binding creates a two way connection between this view and HomePartyView
-    @Binding var path: NavigationPath
-    let partyId : String
-    private let bgImage = "image1_2005"
-    
-    private var hasSelection: Bool {
-      !(
-        model.selectionToDiscourage.applicationTokens.isEmpty
-        && model.selectionToDiscourage.categoryTokens.isEmpty
-        && model.selectionToDiscourage.webDomainTokens.isEmpty
-      )
+
+//public view state so that other views can access if certain views are showing
+public class CreatePartyViewState: ObservableObject {
+    @Published var showFriendsSidebar = false
+    @Published var isPresented = false
+    @Published var isPressed = false
+    @Published var showTimePicker = false
+    @Published var selectedHours = 0
+    @Published var selectedMinutes = 0
+    @Published var isLeader = false
+    @Published var showTimer = false
+    @Published var timeRemaining: TimeInterval = 0
+
+    //persisted timer info
+    private(set) var timer: Timer?
+    private(set) var endTime: Date?
+
+    //family picker model
+    @Published var selectionModel = ScreenTimeViewModel()
+
+    //computed properties
+    public var hasSelection: Bool {
+        !(selectionModel.selectionToDiscourage.applicationTokens.isEmpty
+         && selectionModel.selectionToDiscourage.categoryTokens.isEmpty
+         && selectionModel.selectionToDiscourage.webDomainTokens.isEmpty)
     }
 
-    private var buttonTitle: String {
-        if showTimer {
-            return ""
-        }
+    public var hasValidTimeSelection: Bool {
+        selectedHours != 0 || selectedMinutes != 0
+    }
+
+    public var buttonTitle: String {
+        if showTimer { return "" }
         if isLeader {
             return (isPressed && hasSelection && hasValidTimeSelection) ? "Cancel" : "Ready Up"
         } else {
             return (isPressed && hasSelection) ? "Cancel" : "Ready Up"
         }
     }
-    
-    //helper computed properties to break up complex expressions
-    private var shouldShowReadyButton: Bool {
-        authVM.currentUser?.uid != nil && authVM.currentUser?.email != nil
+
+    public func timeString(from seconds: Int) -> String {
+        let h = seconds / 3600
+        let m = (seconds % 3600) / 60
+        let s = seconds % 60
+        return String(format: "%02d:%02d:%02d", h, m, s)
+    }
+
+    //timer control
+    public func startTimer(duration: TimeInterval) {
+        endTime = Date().addingTimeInterval(duration)
+        UserDefaults.standard.set(endTime, forKey: "timerEndTime")
+        UserDefaults.standard.set(true, forKey: "timerIsRunning")
+        timeRemaining = duration
+        scheduleNotification()
+        beginInternalTimer()
+    }
+
+    private func beginInternalTimer() {
+        timer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
+            guard let self = self, let end = self.endTime else { return (self?.stopTimer())! }
+            let remaining = end.timeIntervalSinceNow
+            if remaining <= 0 {
+                self.finishTimer()
+            } else {
+                DispatchQueue.main.async { self.timeRemaining = remaining }
+            }
+        }
+    }
+
+    public func stopTimer() {
+        timer?.invalidate()
+        timer = nil
+        endTime = nil
+        timeRemaining = 0
+        showTimer = false
+        UserDefaults.standard.removeObject(forKey: "timerEndTime")
+        UserDefaults.standard.set(false, forKey: "timerIsRunning")
+        UNUserNotificationCenter.current().removeAllPendingNotificationRequests()
+    }
+
+    private func finishTimer() {
+        stopTimer()
+        showTimer = false
+        UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
     }
     
-    private var userEmail: String {
-        authVM.currentUser?.email ?? ""
+    //makes it so that we have persistent timer even if user exits the app
+    public func restoreTimerIfNeeded() {
+        let isRunning = UserDefaults.standard.bool(forKey: "timerIsRunning")
+        guard isRunning,
+              let savedEnd = UserDefaults.standard.object(forKey: "timerEndTime") as? Date
+        else { return }
+        let remaining = savedEnd.timeIntervalSinceNow
+        if remaining <= 0 {
+            finishTimer()
+        } else {
+            endTime = savedEnd
+            timeRemaining = remaining
+            beginInternalTimer()
+        }
     }
     
-    private var hasValidTimeSelection: Bool {
-        selectedHours != 0 || selectedMinutes != 0
+    //schedules notification that the app block is done
+    private func scheduleNotification() {
+        UNUserNotificationCenter.current()
+            .requestAuthorization(options: [.alert, .sound, .badge]) { granted, _ in
+                guard granted else { return }
+                let content = UNMutableNotificationContent()
+                content.title = "Timer Finished"
+                content.body  = "Your time block has completed!"
+                content.sound = .default
+                let trigger = UNTimeIntervalNotificationTrigger(timeInterval: self.timeRemaining,
+                                                                repeats: false)
+                let request = UNNotificationRequest(identifier: "timerComplete",
+                                                    content: content,
+                                                    trigger: trigger)
+                UNUserNotificationCenter.current().add(request)
+            }
     }
-    
+}
+
+//actual view
+public struct CreatePartyView: View {
+    @EnvironmentObject private var authVM: AuthViewModel
+    @EnvironmentObject private var partyManager: PartySessionManager
+    @StateObject private var partyVM = PartyViewModel()
+    @StateObject private var state   = CreatePartyViewState()
+
+    @Binding var path: NavigationPath
+    let partyId: String
+    private let bgImage = "image1_2005"
+
     public var body: some View {
         ZStack {
             BackgroundImageView(imageName: bgImage)
-            
             VStack(spacing: 16) {
                 inviteFriendsButton
                 partyCodeText
                 leavePartyButton
-                
-                if shouldShowReadyButton {
-                    Button {
-                        handleReadyUpButtonTap()
-                    } label: {
-                        Text(buttonTitle)
+
+                if authVM.currentUser?.uid != nil {
+                    Button(action: handleReadyUp) {
+                        Text(state.buttonTitle)
                     }
-                    .familyActivityPicker(isPresented: $isPresented, selection: $model.selectionToDiscourage)
-                    .onChange(of: showTimePicker) {
-                        handleTimePickerChange()
+                    .familyActivityPicker(isPresented: $state.isPresented,
+                                          selection: $state.selectionModel.selectionToDiscourage)
+                    .onChange(of: state.isPresented) { handlePickerChange() }
+                    .onChange(of: state.showTimePicker) {handleTimeSelection() }
+
+                    if state.showTimer {
+                        timerSection
                     }
-                    .onChange(of: isPresented) {
-                        handlePickerPresentationChange()
-                    }
-                    
-                    timerSection
                 }
             }
-            .sheet(isPresented: $showFriendsSidebar) {
+            .sheet(isPresented: $state.showFriendsSidebar) {
                 FriendsSidebarView()
                     .environmentObject(authVM)
             }
-            .sheet(isPresented: $showTimePicker) {
+            .sheet(isPresented: $state.showTimePicker) {
                 TimePickerView(
-                    selectedHours: $selectedHours,
-                    selectedMinutes: $selectedMinutes,
-                    showTimePicker: $showTimePicker
+                    selectedHours: $state.selectedHours,
+                    selectedMinutes: $state.selectedMinutes,
+                    showTimePicker: $state.showTimePicker
                 )
             }
             .onAppear {
-                handleViewAppear()
+                setupListeners()
+                state.restoreTimerIfNeeded()
             }
-            .onDisappear {
-                handleViewDisappear()
-            }
-            .onChange(of: authVM.userPartyCode) { _, _ in
-                handlePartyCodeChange()
-            }
-            .onChange(of: partyManager.allReady) {
-                handleAllReadyChange()
-            }
+            .onDisappear { removeListeners() }
+            .onChange(of: authVM.userPartyCode) { resetNavigation() }
+            .onChange(of: partyManager.allReady) { handleAllReady() }
         }
     }
-    
-    //different view components
+
+
     private var inviteFriendsButton: some View {
-        Button(action: {
-            showFriendsSidebar = true
-        }) {
+        Button(action: { state.showFriendsSidebar = true }) {
             HStack {
                 Image(systemName: "person.2.fill")
                 Text("Invite Friends")
@@ -138,13 +201,13 @@ public struct CreatePartyView: View {
             .cornerRadius(10)
         }
     }
-    
+
     private var partyCodeText: some View {
         Text("Party Code: \(partyId)")
             .foregroundColor(.white)
             .textSelection(.enabled)
     }
-    
+
     private var leavePartyButton: some View {
         Button("Leave Party") {
             Task {
@@ -154,245 +217,102 @@ public struct CreatePartyView: View {
             }
         }
     }
-    
-    //tag allows us to write more than one view
+
     @ViewBuilder
     private var timerSection: some View {
-        if showTimer {
-            VStack(spacing: 20) {
-                HStack(spacing: 20) {
-                    Text(timeString(time: Int(timeRemaining)))
-                        .font(.system(size: 23, weight: .bold, design: .monospaced))
-                        .foregroundColor(.white)
-                    
-                    Button("Break!") {
-                        startTimer(duration: 60)
-                    }
-                    .buttonStyle(.bordered)
-                    .bold(true)
-                    .disabled(timer != nil)
-                    .font(.custom("MarkaziText-Bold", size: 22))
-                    
-                    Button("Leave!") {
-                        Task {
-                            stopBlocking()
-                        }
-                        breakTimer()
-                    }
-                    .buttonStyle(.bordered)
-                    .bold(true)
-                    .disabled(timer == nil)
-                    .font(.custom("MarkaziText-Bold", size: 22))
+        VStack(spacing: 20) {
+            HStack(spacing: 20) {
+                Text(state.timeString(from: Int(state.timeRemaining)))
+                    .font(.system(size: 23, weight: .bold, design: .monospaced))
+                    .foregroundColor(.white)
+
+                Button("Break!") {
+                    state.startTimer(duration: 60)
                 }
-                .padding(20)
-                .background(Color.gray.opacity(0.1))
-                .cornerRadius(15)
+                .buttonStyle(.bordered)
+                .disabled(state.timer == nil)
+
+                Button("Leave!") {
+                    state.stopTimer()
+                    state.isPressed = false
+                    partyManager.allReady = false
+                }
+                .buttonStyle(.bordered)
+                .disabled(state.timer == nil)
             }
-            .padding()
-            .onAppear {
-                checkForRunningTimer()
-            }
-            .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
-                checkForRunningTimer()
-            }
+            .padding(20)
+            .background(Color.gray.opacity(0.1))
+            .cornerRadius(15)
+        }
+        .padding()
+        .onAppear { state.restoreTimerIfNeeded() }
+        .onReceive(NotificationCenter.default
+                        .publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
+            state.restoreTimerIfNeeded()
         }
     }
     
     //event handlers
-    private func handleViewAppear() {
+    private func setupListeners() {
         guard let uid = authVM.currentUser?.uid,
               let email = authVM.currentUser?.email else { return }
-        
         authVM.startListeningFriend(uid: uid)
         authVM.startListeningPartyCode(uid: uid)
-        
-        Task {
-            isLeader = await vm.checkLeader(partyId: partyId, email: email)
-        }
+        Task { state.isLeader = await partyVM.checkLeader(partyId: partyId, email: email) }
     }
-    
-    private func handleViewDisappear() {
+
+    private func removeListeners() {
         authVM.stopListeningFriend()
         authVM.stopListeningPartyCode()
     }
-    
-    private func handlePartyCodeChange() {
-        Task {
-            if authVM.userPartyCode == "" {
-                path = NavigationPath()
-            }
+
+    private func resetNavigation() {
+        if authVM.userPartyCode.isEmpty {
+            path = NavigationPath()
         }
     }
-    
-    private func handleAllReadyChange() {
-        if partyManager.allReady {
-            let totalMinutes = selectedHours * 60 + selectedMinutes
-            let totalSeconds = selectedHours * 3600 + selectedMinutes * 60
-            
-            blockApps(selection: model.selectionToDiscourage, timeSet: totalMinutes)
-            showTimer = true
-            startTimer(duration: TimeInterval(totalSeconds))
-            
-            Task {
-                try await vm.clearReady(partyId: partyId)
-            }
-        }
+
+    private func handleAllReady() {
+        guard partyManager.allReady else { return }
+        let total = state.selectedHours * 60 + state.selectedMinutes
+        partyManager.allReady = false
+        blockApps(selection: state.selectionModel.selectionToDiscourage,
+                          timeSet: total)
+        state.showTimer = true
+        state.startTimer(duration: TimeInterval(total * 60))
+        Task { try await partyVM.clearReady(partyId: partyId) }
     }
-    
-    private func handleReadyUpButtonTap() {
-        print("Button tapped - isPressed: \(isPressed), hasSelection: \(hasSelection)")
-        
-        if isPressed && hasSelection {
-            //cancel logic
-            print("Cancelling...")
-            Task {
-                await authVM.cancelReady(partyId: partyId)
-            }
-            isPressed = false
-            model.selectionToDiscourage = FamilyActivitySelection()
-            print("Cancelled blocking; picker will re-appear next time")
+
+    private func handleReadyUp() {
+        if state.isPressed && state.hasSelection {
+            Task { await authVM.cancelReady(partyId: partyId) }
+            state.isPressed = false
+            state.selectionModel.selectionToDiscourage = FamilyActivitySelection()
         } else {
-            //ready up logic - show picker
-            print("Showing family picker...")
-            isPressed = true
-            model.selectionToDiscourage = FamilyActivitySelection()
-            isPresented = true
+            state.isPressed = true
+            state.selectionModel.selectionToDiscourage = FamilyActivitySelection()
+            state.isPresented = true
         }
     }
-    
-    private func handleTimePickerChange() {
-        if !showTimePicker && hasValidTimeSelection {
-            //set isPressed to true when time is selected and ready up is called
-            isPressed = true
-            Task {
-                do {
-                    try await vm.readyUp(partyId: partyId, email: userEmail)
-                } catch {
-                    print("readyUp failed:", error)
-                }
+
+    private func handlePickerChange() {
+        if state.isLeader {
+            if !state.isPresented && state.hasSelection {
+                state.showTimePicker = true
             }
+        } else if !state.isPresented && state.hasSelection {
+            state.isPressed = true
+            Task { try await partyVM.readyUp(partyId: partyId,
+                                             email: authVM.currentUser?.email ?? "") }
         }
     }
-    
-    private func handlePickerPresentationChange() {
-        if isLeader {
-            if !isPresented && hasSelection {
-                showTimePicker = true
-            }
-        } else if !isPresented && hasSelection {
-            // For non-leaders, set isPressed immediately after selection
-            isPressed = true
-            Task {
-                do {
-                    try await vm.readyUp(partyId: partyId, email: userEmail)
-                } catch {
-                    print("readyUp failed:", error)
-                }
-            }
+
+    private func handleTimeSelection() {
+        if !state.showTimePicker && state.hasValidTimeSelection {
+            state.isPressed = true
+            Task { try await partyVM.readyUp(partyId: partyId,
+                                             email: authVM.currentUser?.email ?? "") }
         }
-    }
-    
-    //all the timer functions
-    private func startTimer(duration: TimeInterval) {
-        //store end time in UserDefaults for persistence
-        endTime = Date().addingTimeInterval(duration)
-        UserDefaults.standard.set(endTime, forKey: "timerEndTime")
-        UserDefaults.standard.set(true, forKey: "timerIsRunning")
-        
-        timeRemaining = duration
-        startInternalTimer()
-        
-        //schedule local notification
-        scheduleNotification()
-    }
-    
-    //start out timer so we know when to stop everything
-    private func startInternalTimer() {
-        timer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { _ in
-            guard let endTime = self.endTime else {
-                breakTimer()
-                return
-            }
-            
-            let remaining = endTime.timeIntervalSinceNow
-            if remaining <= 0 {
-                //timer finished
-                timerFinished()
-            } else {
-                timeRemaining = remaining
-            }
-        }
-    }
-    
-    //if the user further down the line decides to take a break
-    private func breakTimer() {
-        timer?.invalidate()
-        timer = nil
-        endTime = nil
-        timeRemaining = 0
-        showTimer = false
-        
-        //clear the persistent data
-        UserDefaults.standard.removeObject(forKey: "timerEndTime")
-        UserDefaults.standard.set(false, forKey: "timerIsRunning")
-        
-        //cancel the notifcation that was supposed to be sent out
-        UNUserNotificationCenter.current().removeAllPendingNotificationRequests()
-    }
-    
-    //checks if timer finished without sending notification
-    private func timerFinished() {
-        breakTimer()
-        print("Timer finished!")
-        showTimer = false
-        
-        //trigger haptic feedback if app is active
-        let impactFeedback = UIImpactFeedbackGenerator(style: .heavy)
-        impactFeedback.impactOccurred()
-    }
-    
-    //this is to keep the timer running if we switch views or close app
-    private func checkForRunningTimer() {
-        let isRunning = UserDefaults.standard.bool(forKey: "timerIsRunning")
-        
-        if isRunning, let savedEndTime = UserDefaults.standard.object(forKey: "timerEndTime") as? Date {
-            let remaining = savedEndTime.timeIntervalSinceNow
-            
-            if remaining <= 0 {
-                //timer finished
-                timerFinished()
-            } else {
-                //timer is still running so please continue
-                endTime = savedEndTime
-                timeRemaining = remaining
-                startInternalTimer()
-            }
-        }
-    }
-    
-    private func scheduleNotification() {
-        //request permission from user for notification
-        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in
-            if granted {
-                let content = UNMutableNotificationContent()
-                content.title = "Timer Finished"
-                content.body = "Your time block has completed!"
-                content.sound = .default
-                
-                let trigger = UNTimeIntervalNotificationTrigger(timeInterval: timeRemaining, repeats: false)
-                let request = UNNotificationRequest(identifier: "timerComplete", content: content, trigger: trigger)
-                
-                UNUserNotificationCenter.current().add(request)
-            }
-        }
-    }
-    
-    //this formats the timer
-    private func timeString(time: Int) -> String {
-        let hours = time / 3600
-        let minutes = (time % 3600) / 60
-        let seconds = time % 60
-        return String(format: "%02d:%02d:%02d", hours, minutes, seconds)
     }
 }
 
@@ -585,16 +505,4 @@ extension CreatePartyView {
             .buttonStyle(PlainButtonStyle())
         }
     }
-}
-
-#Preview {
-    @Previewable @State var path: NavigationPath = {
-        var p = NavigationPath()
-        p.append(Route.createParty(id: "xZMKuxEfVX"))
-        return p
-    }()
-    
-    CreatePartyView(path: $path, partyId: "xZMKuxEfVX")
-        .environmentObject(AuthViewModel())
-        .environmentObject(PartySessionManager())
 }
