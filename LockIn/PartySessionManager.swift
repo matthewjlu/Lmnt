@@ -9,28 +9,38 @@ import SwiftUI
 import FirebaseFirestore
 
 class PartySessionManager: ObservableObject {
-  private var listener: ListenerRegistration?
-  @Published var allReady = false
+    private var listener: ListenerRegistration?
+    @Published var allReady = false
+    private var isActive = true
     
-  //listener to see if all the members in the party are ready so that we can fire the block
-  func join(partyId: String) {
-    listener = Firestore.firestore()
-      .collection("parties")
-      .document(partyId)
-      .addSnapshotListener { snap, _ in
-        guard let data = snap?.data() else { return }
-        let members = data["members"] as? [String] ?? []
-        let ready   = data["ready"]   as? [String] ?? []
-        if !members.isEmpty && members.count == ready.count {
-          self.allReady = true
-          self.listener?.remove()
+    func join(partyId: String) {
+        isActive = true
+        listener = Firestore.firestore()
+            .collection("parties")
+            .document(partyId)
+            .addSnapshotListener { [weak self] snap, _ in
+                guard let self = self, self.isActive else { return }
+                
+                DispatchQueue.main.async {
+                    guard let data = snap?.data(), self.isActive else { return }
+                    let members = data["members"] as? [String] ?? []
+                    let ready   = data["ready"]   as? [String] ?? []
+                    
+                    if !members.isEmpty && members.count == ready.count {
+                        self.allReady = true
+                        self.listener?.remove()
+                        self.listener = nil
+                    }
+                }
+            }
+    }
+    
+    func leave() {
+        isActive = false
+        DispatchQueue.main.async {
+            self.listener?.remove()
+            self.listener = nil
+            self.allReady = false
         }
-      }
-  }
-
-  func leave() {
-    listener?.remove()
-    self.allReady = false
-  }
+    }
 }
-

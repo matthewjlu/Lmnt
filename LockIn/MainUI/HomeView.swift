@@ -13,7 +13,6 @@ struct HomeView: View {
     @EnvironmentObject private var authVM: AuthViewModel
     @State private var isPresented = false
     @StateObject private var model = ScreenTimeViewModel()
-    @StateObject private var createVS = CreatePartyViewState()
     private let bgImage  = "image1_1950"
     private let buttonBg = "image2_1953"
     private let lockIcon = "image3_2166"

@@ -62,19 +62,31 @@ public class CreatePartyViewState: ObservableObject {
         endTime = Date().addingTimeInterval(duration)
         UserDefaults.standard.set(endTime, forKey: "timerEndTime")
         UserDefaults.standard.set(true, forKey: "timerIsRunning")
+        UserDefaults.standard.set(true, forKey: "timerShowUI")
+        UserDefaults.standard.set(isPressed, forKey: "timerIsPressed")
+        UserDefaults.standard.set(selectedHours, forKey: "timerSelectedHours")
+        UserDefaults.standard.set(selectedMinutes, forKey: "timerSelectedMinutes")
         timeRemaining = duration
+        showTimer = true
+        saveSelectionState()
         scheduleNotification()
         beginInternalTimer()
     }
 
     private func beginInternalTimer() {
         timer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
-            guard let self = self, let end = self.endTime else { return (self?.stopTimer())! }
+            guard let self = self else { return }
+            guard let end = self.endTime else {
+                self.stopTimer()
+                return
+            }
             let remaining = end.timeIntervalSinceNow
             if remaining <= 0 {
                 self.finishTimer()
             } else {
-                DispatchQueue.main.async { self.timeRemaining = remaining }
+                DispatchQueue.main.async {
+                    self.timeRemaining = remaining
+                }
             }
         }
     }
@@ -87,6 +99,11 @@ public class CreatePartyViewState: ObservableObject {
         showTimer = false
         UserDefaults.standard.removeObject(forKey: "timerEndTime")
         UserDefaults.standard.set(false, forKey: "timerIsRunning")
+        UserDefaults.standard.set(false, forKey: "timerShowUI")
+        UserDefaults.standard.set(false, forKey: "timerIsPressed")
+        UserDefaults.standard.removeObject(forKey: "timerSelectedHours")
+        UserDefaults.standard.removeObject(forKey: "timerSelectedMinutes")
+        UserDefaults.standard.removeObject(forKey: "savedSelection")
         UNUserNotificationCenter.current().removeAllPendingNotificationRequests()
     }
 
@@ -99,16 +116,44 @@ public class CreatePartyViewState: ObservableObject {
     //makes it so that we have persistent timer even if user exits the app
     public func restoreTimerIfNeeded() {
         let isRunning = UserDefaults.standard.bool(forKey: "timerIsRunning")
+        let shouldShowUI = UserDefaults.standard.bool(forKey: "timerShowUI")
+        
         guard isRunning,
               let savedEnd = UserDefaults.standard.object(forKey: "timerEndTime") as? Date
         else { return }
+        
         let remaining = savedEnd.timeIntervalSinceNow
         if remaining <= 0 {
             finishTimer()
         } else {
             endTime = savedEnd
             timeRemaining = remaining
+            showTimer = shouldShowUI
+            isPressed = UserDefaults.standard.bool(forKey: "timerIsPressed")
+            selectedHours = UserDefaults.standard.integer(forKey: "timerSelectedHours")
+            selectedMinutes = UserDefaults.standard.integer(forKey: "timerSelectedMinutes")
+            restoreSelectionState()
             beginInternalTimer()
+        }
+    }
+    
+    // Save selection state for persistence
+    private func saveSelectionState() {
+        do {
+            let data = try NSKeyedArchiver.archivedData(withRootObject: selectionModel.selectionToDiscourage, requiringSecureCoding: false)
+            UserDefaults.standard.set(data, forKey: "savedSelection")
+        } catch {
+            print("Failed to save selection state: \(error)")
+        }
+    }
+    
+    // Restore selection state from persistence
+    private func restoreSelectionState() {
+        guard let data = UserDefaults.standard.data(forKey: "savedSelection") else { return }
+        do {
+            if let selection = NSKeyedUnarchiver.unarchiveObject(with: data) as? FamilyActivitySelection {
+                selectionModel.selectionToDiscourage = selection
+            }
         }
     }
     
@@ -211,9 +256,10 @@ public struct CreatePartyView: View {
     private var leavePartyButton: some View {
         Button("Leave Party") {
             Task {
+                await MainActor.run {
+                    partyManager.leave()
+                }
                 await authVM.leaveParty(partyId: partyId)
-                partyManager.allReady = false
-                partyManager.leave()
             }
         }
     }
@@ -236,6 +282,7 @@ public struct CreatePartyView: View {
                     state.stopTimer()
                     state.isPressed = false
                     partyManager.allReady = false
+                    stopBlocking()
                 }
                 .buttonStyle(.bordered)
                 .disabled(state.timer == nil)
