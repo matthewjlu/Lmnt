@@ -16,9 +16,12 @@ public struct CreatePartyView: View {
     @EnvironmentObject var partyManager : PartySessionManager
     @StateObject private var vm = PartyViewModel()
     @State private var showFriendsSidebar = false
+    //toggles the friend sidebar, the family picker, and the time selector
     @State private var isPresented = false
+    //deals with the ready up / cancel button
     @State private var isPressed = false
     @State private var showTimePicker = false
+    //measures when to queue the stop timer functionalities
     @State private var partyTime: Date = .now
     @State private var selectedHours = 0
     @State private var selectedMinutes = 0
@@ -46,10 +49,23 @@ public struct CreatePartyView: View {
             return ""
         }
         if isLeader {
-            return (isPressed && hasSelection && (selectedHours != 0 || selectedMinutes != 0)) ? "Cancel" : "Ready Up"
+            return (isPressed && hasSelection && hasValidTimeSelection) ? "Cancel" : "Ready Up"
         } else {
             return (isPressed && hasSelection) ? "Cancel" : "Ready Up"
         }
+    }
+    
+    //helper computed properties to break up complex expressions
+    private var shouldShowReadyButton: Bool {
+        authVM.currentUser?.uid != nil && authVM.currentUser?.email != nil
+    }
+    
+    private var userEmail: String {
+        authVM.currentUser?.email ?? ""
+    }
+    
+    private var hasValidTimeSelection: Bool {
+        selectedHours != 0 || selectedMinutes != 0
     }
     
     public var body: some View {
@@ -57,230 +73,238 @@ public struct CreatePartyView: View {
             BackgroundImageView(imageName: bgImage)
             
             VStack(spacing: 16) {
-                //invite Friends Button
-                Button(action: {
-                    showFriendsSidebar = true
-                }) {
-                    HStack {
-                        Image(systemName: "person.2.fill")
-                        Text("Invite Friends")
-                    }
-                    .font(.custom("SF Pro", size: 16))
-                    .fontWeight(.semibold)
-                    .foregroundColor(.white)
-                    .padding(.vertical, 12)
-                    .padding(.horizontal, 24)
-                    .background(Color.purple)
-                    .cornerRadius(10)
-                }
+                inviteFriendsButton
+                partyCodeText
+                leavePartyButton
                 
-                Text("Party Code: \(partyId)")
-                    .foregroundColor(.white)
-                    .textSelection(.enabled)
-                
-                Button("Leave Party") {
-                    Task {
-                        await authVM.leaveParty(partyId: partyId)
-                        partyManager.allReady = false
-                        partyManager.leave()
-                    }
-                }
-                
-                if let _ = authVM.currentUser?.uid, let email = authVM.currentUser?.email {
+                if shouldShowReadyButton {
                     Button {
-                          //this is logic for cancel button
-                          if isPressed && hasSelection {
-                            Task {
-                                await authVM.cancelReady(partyId: partyId)
-                            }
-                            isPressed = false
-                            model.selectionToDiscourage = FamilyActivitySelection()
-                            print("Cancelled blocking; picker will re-appear next time")
-                         //this is logic for ready up button
-                          } else {
-                            isPressed = true
-                            model.selectionToDiscourage = FamilyActivitySelection()
-                            isPresented = true
-                          }
-                        } label: {
-                          Text(buttonTitle)
-                        }
-                        .familyActivityPicker(isPresented: $isPresented, selection: $model.selectionToDiscourage)
-                        //make it so that the leader readies up only if they pick a valid time
-                        .onChange(of: showTimePicker) {
-                            if !showTimePicker && (selectedHours != 0 || selectedMinutes != 0) {
-                                Task {
-                                    do {
-                                        try await vm.readyUp(partyId: partyId, email: email)
-                                    } catch {
-                                        print("readyUp failed:", error)
-                                    }
-                                }
-                            }
-                        }
-                        .onChange(of: isPresented) {
-                            //make sure the user has exited the picker and has blocked something...also check if user is leader
-                            Task {
-                                if isLeader {
-                                    if !isPresented && hasSelection {
-                                        showTimePicker = true
-                                    }
-                                } else if !isPresented && hasSelection {
-                                    Task {
-                                        do {
-                                            try await vm.readyUp(partyId: partyId, email: email)
-                                        } catch {
-                                            print("readyUp failed:", error)
-                                        }
-                                }
-                            }
-                        }
+                        handleReadyUpButtonTap()
+                    } label: {
+                        Text(buttonTitle)
                     }
-                    //this picks the time
-                    .sheet(isPresented: $showTimePicker) {
-                        VStack(spacing: 16) {
-                            Text("How long to block apps?")
-                                .font(.headline)
-                            
-                            HStack(spacing: 20) {
-                                VStack {
-                                    Text("Hours")
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
-                                    
-                                    Picker("Hours", selection: $selectedHours) {
-                                        ForEach(0..<24, id: \.self) { hour in
-                                            Text("\(hour)")
-                                                .tag(hour)
-                                        }
-                                    }
-                                    .pickerStyle(.wheel)
-                                    .frame(width: 80)
-                                }
-                                
-                                VStack {
-                                    Text("Minutes")
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
-                                    
-                                    Picker("Minutes", selection: $selectedMinutes) {
-                                        ForEach([0, 15, 30, 45], id: \.self) { minute in
-                                            Text("\(minute)")
-                                                .tag(minute)
-                                        }
-                                    }
-                                    .pickerStyle(.wheel)
-                                    .frame(width: 80)
-                                }
-                            }
-                            
-                            Text("Block for: \(selectedHours)h \(selectedMinutes)m")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                            
-                            Button("Done!") {
-                                showTimePicker = false
-                                print("Block Time Set!")
-                            }
-                            .padding(.top)
-                            .buttonStyle(.borderedProminent)
-                            .disabled(selectedHours == 0 && selectedMinutes == 0)
-                        }
-                        .padding()
+                    .familyActivityPicker(isPresented: $isPresented, selection: $model.selectionToDiscourage)
+                    .onChange(of: showTimePicker) {
+                        handleTimePickerChange()
+                    }
+                    .onChange(of: isPresented) {
+                        handlePickerPresentationChange()
                     }
                     
-                    //the stack for the timer countdown
-                    if showTimer {
-                        VStack(spacing: 20) {
-                            HStack(spacing: 20) {
-                                Text(timeString(time: Int(timeRemaining)))
-                                    .font(.system(size: 23, weight: .bold, design: .monospaced))
-                                    .foregroundColor(.white)
-                                
-                                Button("Break!") {
-                                    //have to add break logic
-                                    startTimer(duration: 60)
-                                }
-                                .buttonStyle(.bordered)
-                                .bold(true)
-                                .disabled(timer != nil)
-                                .font(.custom("MarkaziText-Bold", size: 22))
-                                
-                                Button("Leave!") {
-                                    breakTimer()
-                                }
-                                .buttonStyle(.bordered)
-                                .bold(true)
-                                .disabled(timer == nil)
-                                .font(.custom("MarkaziText-Bold", size: 22))
-                            }
-                            .padding(20)
-                            .background(Color.gray.opacity(0.1))
-                            .cornerRadius(15)
-                        }
-                        .padding()
-                        .onAppear {
-                            checkForRunningTimer()
-                        }
-                        .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
-                            checkForRunningTimer()
-                        }
-                    }
+                    timerSection
                 }
             }
             .sheet(isPresented: $showFriendsSidebar) {
                 FriendsSidebarView()
                     .environmentObject(authVM)
             }
+            .sheet(isPresented: $showTimePicker) {
+                TimePickerView(
+                    selectedHours: $selectedHours,
+                    selectedMinutes: $selectedMinutes,
+                    showTimePicker: $showTimePicker
+                )
+            }
             .onAppear {
-                //load friends when view appears
-                if let uid = authVM.currentUser?.uid, let email = authVM.currentUser?.email {
-                    authVM.startListeningFriend(uid: uid)
-                    authVM.startListeningPartyCode(uid: uid)
-                    Task {
-                        isLeader = await vm.checkLeader(partyId: partyId, email: email)
-                    }
-                }
+                handleViewAppear()
             }
             .onDisappear {
-                authVM.stopListeningFriend()
-                authVM.stopListeningPartyCode()
+                handleViewDisappear()
             }
-            //checks if the party disbands so that we go back to home party view
             .onChange(of: authVM.userPartyCode) { _, _ in
-                Task {
-                    if authVM.userPartyCode == "" {
-                        path = NavigationPath()
-                    }
-                }
+                handlePartyCodeChange()
             }
-            //logic to check if everyone in the party is ready so that we can block the time
             .onChange(of: partyManager.allReady) {
-                if partyManager.allReady {
-                    //convert everything to minutes and calculate how much time we need to block for
-                    blockApps(selection: model.selectionToDiscourage, timeSet: selectedHours * 60 + selectedMinutes)
-                    showTimer = true
-                    startTimer(duration: selectedHours * 3600 + selectedMinutes * 60)
-                    Task {
-                        try await vm.clearReady(partyId: partyId)
+                handleAllReadyChange()
+            }
+        }
+    }
+    
+    //different view components
+    private var inviteFriendsButton: some View {
+        Button(action: {
+            showFriendsSidebar = true
+        }) {
+            HStack {
+                Image(systemName: "person.2.fill")
+                Text("Invite Friends")
+            }
+            .font(.custom("Palatino", size: 16))
+            .fontWeight(.semibold)
+            .foregroundColor(.white)
+            .padding(.vertical, 12)
+            .padding(.horizontal, 24)
+            .background(Color.purple)
+            .cornerRadius(10)
+        }
+    }
+    
+    private var partyCodeText: some View {
+        Text("Party Code: \(partyId)")
+            .foregroundColor(.white)
+            .textSelection(.enabled)
+    }
+    
+    private var leavePartyButton: some View {
+        Button("Leave Party") {
+            Task {
+                await authVM.leaveParty(partyId: partyId)
+                partyManager.allReady = false
+                partyManager.leave()
+            }
+        }
+    }
+    
+    //tag allows us to write more than one view
+    @ViewBuilder
+    private var timerSection: some View {
+        if showTimer {
+            VStack(spacing: 20) {
+                HStack(spacing: 20) {
+                    Text(timeString(time: Int(timeRemaining)))
+                        .font(.system(size: 23, weight: .bold, design: .monospaced))
+                        .foregroundColor(.white)
+                    
+                    Button("Break!") {
+                        startTimer(duration: 60)
                     }
+                    .buttonStyle(.bordered)
+                    .bold(true)
+                    .disabled(timer != nil)
+                    .font(.custom("MarkaziText-Bold", size: 22))
+                    
+                    Button("Leave!") {
+                        Task {
+                            stopBlocking()
+                        }
+                        breakTimer()
+                    }
+                    .buttonStyle(.bordered)
+                    .bold(true)
+                    .disabled(timer == nil)
+                    .font(.custom("MarkaziText-Bold", size: 22))
+                }
+                .padding(20)
+                .background(Color.gray.opacity(0.1))
+                .cornerRadius(15)
+            }
+            .padding()
+            .onAppear {
+                checkForRunningTimer()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
+                checkForRunningTimer()
+            }
+        }
+    }
+    
+    //event handlers
+    private func handleViewAppear() {
+        guard let uid = authVM.currentUser?.uid,
+              let email = authVM.currentUser?.email else { return }
+        
+        authVM.startListeningFriend(uid: uid)
+        authVM.startListeningPartyCode(uid: uid)
+        
+        Task {
+            isLeader = await vm.checkLeader(partyId: partyId, email: email)
+        }
+    }
+    
+    private func handleViewDisappear() {
+        authVM.stopListeningFriend()
+        authVM.stopListeningPartyCode()
+    }
+    
+    private func handlePartyCodeChange() {
+        Task {
+            if authVM.userPartyCode == "" {
+                path = NavigationPath()
+            }
+        }
+    }
+    
+    private func handleAllReadyChange() {
+        if partyManager.allReady {
+            let totalMinutes = selectedHours * 60 + selectedMinutes
+            let totalSeconds = selectedHours * 3600 + selectedMinutes * 60
+            
+            blockApps(selection: model.selectionToDiscourage, timeSet: totalMinutes)
+            showTimer = true
+            startTimer(duration: TimeInterval(totalSeconds))
+            
+            Task {
+                try await vm.clearReady(partyId: partyId)
+            }
+        }
+    }
+    
+    private func handleReadyUpButtonTap() {
+        print("Button tapped - isPressed: \(isPressed), hasSelection: \(hasSelection)")
+        
+        if isPressed && hasSelection {
+            //cancel logic
+            print("Cancelling...")
+            Task {
+                await authVM.cancelReady(partyId: partyId)
+            }
+            isPressed = false
+            model.selectionToDiscourage = FamilyActivitySelection()
+            print("Cancelled blocking; picker will re-appear next time")
+        } else {
+            //ready up logic - show picker
+            print("Showing family picker...")
+            isPressed = true
+            model.selectionToDiscourage = FamilyActivitySelection()
+            isPresented = true
+        }
+    }
+    
+    private func handleTimePickerChange() {
+        if !showTimePicker && hasValidTimeSelection {
+            //set isPressed to true when time is selected and ready up is called
+            isPressed = true
+            Task {
+                do {
+                    try await vm.readyUp(partyId: partyId, email: userEmail)
+                } catch {
+                    print("readyUp failed:", error)
                 }
             }
         }
     }
     
-    private func startTimer(duration: TimeInterval) {
-            // Store end time in UserDefaults for persistence
-            endTime = Date().addingTimeInterval(duration)
-            UserDefaults.standard.set(endTime, forKey: "timerEndTime")
-            UserDefaults.standard.set(true, forKey: "timerIsRunning")
-            
-            timeRemaining = duration
-            startInternalTimer()
-            
-            //schedule local notification
-            scheduleNotification()
+    private func handlePickerPresentationChange() {
+        if isLeader {
+            if !isPresented && hasSelection {
+                showTimePicker = true
+            }
+        } else if !isPresented && hasSelection {
+            // For non-leaders, set isPressed immediately after selection
+            isPressed = true
+            Task {
+                do {
+                    try await vm.readyUp(partyId: partyId, email: userEmail)
+                } catch {
+                    print("readyUp failed:", error)
+                }
+            }
         }
+    }
+    
+    //all the timer functions
+    private func startTimer(duration: TimeInterval) {
+        //store end time in UserDefaults for persistence
+        endTime = Date().addingTimeInterval(duration)
+        UserDefaults.standard.set(endTime, forKey: "timerEndTime")
+        UserDefaults.standard.set(true, forKey: "timerIsRunning")
+        
+        timeRemaining = duration
+        startInternalTimer()
+        
+        //schedule local notification
+        scheduleNotification()
+    }
     
     //start out timer so we know when to stop everything
     private func startInternalTimer() {
@@ -347,7 +371,7 @@ public struct CreatePartyView: View {
     }
     
     private func scheduleNotification() {
-        //request permissoin from user for notification
+        //request permission from user for notification
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in
             if granted {
                 let content = UNMutableNotificationContent()
@@ -370,10 +394,69 @@ public struct CreatePartyView: View {
         let seconds = time % 60
         return String(format: "%02d:%02d:%02d", hours, minutes, seconds)
     }
+}
 
+//view for picking time
+struct TimePickerView: View {
+    @Binding var selectedHours: Int
+    @Binding var selectedMinutes: Int
+    @Binding var showTimePicker: Bool
     
-    
-    //friends Sidebar View
+    var body: some View {
+        VStack(spacing: 16) {
+            Text("How long to block apps?")
+                .font(.headline)
+            
+            HStack(spacing: 20) {
+                VStack {
+                    Text("Hours")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    
+                    Picker("Hours", selection: $selectedHours) {
+                        ForEach(0..<24, id: \.self) { hour in
+                            Text("\(hour)")
+                                .tag(hour)
+                        }
+                    }
+                    .pickerStyle(.wheel)
+                    .frame(width: 80)
+                }
+                
+                VStack {
+                    Text("Minutes")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    
+                    Picker("Minutes", selection: $selectedMinutes) {
+                        ForEach([0, 15, 30, 45], id: \.self) { minute in
+                            Text("\(minute)")
+                                .tag(minute)
+                        }
+                    }
+                    .pickerStyle(.wheel)
+                    .frame(width: 80)
+                }
+            }
+            
+            Text("Block for: \(selectedHours)h \(selectedMinutes)m")
+                .font(.caption)
+                .foregroundColor(.secondary)
+            
+            Button("Done!") {
+                showTimePicker = false
+                print("Block Time Set!")
+            }
+            .padding(.top)
+            .buttonStyle(.borderedProminent)
+            .disabled(selectedHours == 0 && selectedMinutes == 0)
+        }
+        .padding()
+    }
+}
+
+//how the friend sidebar looks
+extension CreatePartyView {
     struct FriendsSidebarView: View {
         @EnvironmentObject private var authVM: AuthViewModel
         @Environment(\.dismiss) private var dismiss
@@ -505,15 +588,13 @@ public struct CreatePartyView: View {
 }
 
 #Preview {
-    
     @Previewable @State var path: NavigationPath = {
-            var p = NavigationPath()
-            p.append(Route.createParty(id: "xZMKuxEfVX"))
-            return p
-        }()
-        
+        var p = NavigationPath()
+        p.append(Route.createParty(id: "xZMKuxEfVX"))
+        return p
+    }()
+    
     CreatePartyView(path: $path, partyId: "xZMKuxEfVX")
         .environmentObject(AuthViewModel())
         .environmentObject(PartySessionManager())
 }
-
