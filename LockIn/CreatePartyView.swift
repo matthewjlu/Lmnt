@@ -69,7 +69,6 @@ public class CreatePartyViewState: ObservableObject {
         timeRemaining = duration
         showTimer = true
         saveSelectionState()
-        scheduleNotification()
         beginInternalTimer()
     }
 
@@ -104,7 +103,6 @@ public class CreatePartyViewState: ObservableObject {
         UserDefaults.standard.removeObject(forKey: "timerSelectedHours")
         UserDefaults.standard.removeObject(forKey: "timerSelectedMinutes")
         UserDefaults.standard.removeObject(forKey: "savedSelection")
-        UNUserNotificationCenter.current().removeAllPendingNotificationRequests()
     }
 
     private func finishTimer() {
@@ -156,24 +154,6 @@ public class CreatePartyViewState: ObservableObject {
             }
         }
     }
-    
-    //schedules notification that the app block is done
-    private func scheduleNotification() {
-        UNUserNotificationCenter.current()
-            .requestAuthorization(options: [.alert, .sound, .badge]) { granted, _ in
-                guard granted else { return }
-                let content = UNMutableNotificationContent()
-                content.title = "Timer Finished"
-                content.body  = "Your time block has completed!"
-                content.sound = .default
-                let trigger = UNTimeIntervalNotificationTrigger(timeInterval: self.timeRemaining,
-                                                                repeats: false)
-                let request = UNNotificationRequest(identifier: "timerComplete",
-                                                    content: content,
-                                                    trigger: trigger)
-                UNUserNotificationCenter.current().add(request)
-            }
-    }
 }
 
 //actual view
@@ -186,7 +166,6 @@ public struct CreatePartyView: View {
     @Binding var path: NavigationPath
     let partyId: String
     private let bgImage = "image1_2005"
-
     public var body: some View {
         ZStack {
             BackgroundImageView(imageName: bgImage)
@@ -293,10 +272,6 @@ public struct CreatePartyView: View {
         }
         .padding()
         .onAppear { state.restoreTimerIfNeeded() }
-        .onReceive(NotificationCenter.default
-                        .publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
-            state.restoreTimerIfNeeded()
-        }
     }
     
     //event handlers
