@@ -63,7 +63,8 @@ class PartyViewModel: ObservableObject {
         try await newPartyRef.setData([
             "members": [email],
             "leader": email,
-            "ready": []])
+            "ready": [],
+            "active":false])
         // update the user's partyCode (merge so we don't clobber other fields)
         try await db
             .collection("users")
@@ -150,6 +151,20 @@ class PartyViewModel: ObservableObject {
           .document(partyId)
         
         try await snapshot.setData(["ready": []], merge: true)
+    }
+    
+    func blockActive(partyId: String) async throws {
+        let snapshot = partiesCol
+          .document(partyId)
+        
+        try await snapshot.setData(["active": true], merge: true)
+    }
+    
+    func blockDeactive(partyId: String) async throws {
+        let snapshot = partiesCol
+          .document(partyId)
+        
+        try await snapshot.setData(["active": false], merge: true)
     }
 }
 

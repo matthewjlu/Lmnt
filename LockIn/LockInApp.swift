@@ -39,6 +39,7 @@ struct LockInApp: App {
                 .onReceive(authVM.$userPartyCode) {code in
                     if code != "" {
                         partyManager.join(partyId: code)
+                        partyManager.partyActiveListener(partyId: code)
                     }
                 }
 

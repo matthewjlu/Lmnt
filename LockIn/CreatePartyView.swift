@@ -183,7 +183,7 @@ public struct CreatePartyView: View {
                     .onChange(of: state.isPresented) { handlePickerChange() }
                     .onChange(of: state.showTimePicker) {handleTimeSelection() }
 
-                    if state.showTimer {
+                    if partyManager.activeParty == true {
                         timerSection
                     }
                 }
@@ -205,7 +205,7 @@ public struct CreatePartyView: View {
             }
             .onDisappear { removeListeners() }
             .onChange(of: authVM.userPartyCode) { resetNavigation() }
-            .onChange(of: partyManager.allReady) { handleAllReady() }
+            .onChange(of: partyManager.allReady) { Task{await handleAllReady()} }
         }
     }
 
@@ -238,6 +238,7 @@ public struct CreatePartyView: View {
                 await MainActor.run {
                     partyManager.leave()
                 }
+                try await partyVM.blockDeactive(partyId: partyId)
                 await authVM.leaveParty(partyId: partyId)
             }
         }
@@ -253,6 +254,9 @@ public struct CreatePartyView: View {
 
                 Button("Break!") {
                     state.startTimer(duration: 60)
+                    Task {
+                        try await partyVM.blockDeactive(partyId: partyId)
+                    }
                 }
                 .buttonStyle(.bordered)
                 .disabled(state.timer == nil)
@@ -262,6 +266,9 @@ public struct CreatePartyView: View {
                     state.isPressed = false
                     partyManager.allReady = false
                     stopBlocking()
+                    Task {
+                        try await partyVM.blockDeactive(partyId: partyId)
+                    }
                 }
                 .buttonStyle(.bordered)
                 .disabled(state.timer == nil)
@@ -294,8 +301,13 @@ public struct CreatePartyView: View {
         }
     }
 
-    private func handleAllReady() {
+    private func handleAllReady() async{
         guard partyManager.allReady else { return }
+        do {
+            try await partyVM.blockActive(partyId: partyId)
+        } catch {
+            return
+        }
         let total = state.selectedHours * 60 + state.selectedMinutes
         partyManager.allReady = false
         blockApps(selection: state.selectionModel.selectionToDiscourage,
